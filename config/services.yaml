@@ -19,5 +19,8 @@ services:
     App\:
         resource: '../src/'
 
-    # add more service definitions when explicit configuration is needed
-    # please note that last definitions always *replace* previous ones
+    App\Domain\User\Repository\UserRepositoryInterface:
+        class: App\Infrastructure\Persistence\User\DoctrineUserRepository
+
+    App\Domain\WorkEntry\Repository\WorkEntryRepositoryInterface:
+        class: App\Infrastructure\Persistence\WorkEntry\DoctrineWorkEntryRepository

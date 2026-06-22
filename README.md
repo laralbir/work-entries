@@ -67,12 +67,24 @@ The entrypoint automatically handles:
 
 ## JWT Authentication
 
+### Default admin user
+
+A seed admin user is created automatically by the migrations:
+
+| Field | Value |
+|---|---|
+| Email | `admin@workentries.com` |
+| Password | `nimda` |
+| Role | `ROLE_ADMIN` |
+
+> **Change this password immediately in any non-development environment.**
+
 ### Obtain a token
 
 ```bash
 curl -X POST http://localhost:8080/api/login_check \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "your-password"}'
+  -d '{"email": "admin@workentries.com", "password": "nimda"}'
 ```
 
 ### Use the token
@@ -115,6 +127,7 @@ work-entries/
 | `name` | `VARCHAR(255)` | NOT NULL |
 | `email` | `VARCHAR(255)` | NOT NULL, UNIQUE |
 | `password` | `VARCHAR(255)` | NOT NULL (hashed) |
+| `roles` | `JSON` | NOT NULL (e.g. `["ROLE_WORKER"]`) |
 | `created_at` | `DATETIME` | NOT NULL |
 | `updated_at` | `DATETIME` | NOT NULL |
 | `deleted_at` | `DATETIME` | NULL (soft-delete) |
@@ -166,18 +179,26 @@ This project follows:
 
 ## Useful Commands
 
+All commands run inside the application container (`work_entries_app`):
+
 ```bash
 # Create a new migration after modifying entities
-php bin/console make:migration
+docker exec work_entries_app php bin/console make:migration
 
 # Run pending migrations
-php bin/console doctrine:migrations:migrate
+docker exec work_entries_app php bin/console doctrine:migrations:migrate
 
 # List registered routes
-php bin/console debug:router
+docker exec work_entries_app php bin/console debug:router
 
 # Clear cache
-php bin/console cache:clear
+docker exec work_entries_app php bin/console cache:clear
+
+# Run the test suite
+docker exec work_entries_app php bin/phpunit --no-coverage
+
+# Validate that the database schema matches the entity mappings
+docker exec work_entries_app php bin/console doctrine:schema:validate
 ```
 
 ## Changelog
