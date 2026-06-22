@@ -11,6 +11,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'work_entries')]
+#[ORM\Index(columns: ['user_id', 'start_date'], name: 'IDX_WE_USER_START_DATE')]
 #[ORM\HasLifecycleCallbacks]
 class WorkEntry
 {

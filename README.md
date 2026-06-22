@@ -1,10 +1,10 @@
 # Work Entries API
 
-API REST para la gestión de fichajes de empleados, construida con Symfony 7.4, API Platform y autenticación JWT.
+REST API for employee time-tracking, built with Symfony 7.4, API Platform, and JWT authentication.
 
-## Stack Tecnológico
+## Tech Stack
 
-| Tecnología | Versión |
+| Technology | Version |
 |---|---|
 | PHP | 8.2 |
 | Symfony | 7.4 |
@@ -13,91 +13,91 @@ API REST para la gestión de fichajes de empleados, construida con Symfony 7.4, 
 | Nginx | Alpine |
 | Docker | - |
 
-## Requisitos
+## Requirements
 
 - Docker & Docker Compose
 - Git
 
-## Instalación y Arranque
+## Installation & Setup
 
-### 1. Clonar el repositorio
+### 1. Clone the repository
 
 ```bash
 git clone git@github.com:laralbir/work-entries.git
 cd work-entries
 ```
 
-### 2. Configurar variables de entorno
+### 2. Configure environment variables
 
-Crea un `.env.local` con tus valores específicos (nunca subas este fichero al repo):
+Create a `.env.local` with your own values (never commit this file):
 
 ```bash
 cp .env .env.local
 ```
 
-Edita `.env.local` y ajusta al menos:
+Edit `.env.local` and set at least:
 
 ```dotenv
-APP_SECRET=<genera-uno-con-openssl-rand-hex-32>
+APP_SECRET=<generate-with-openssl-rand-hex-32>
 DB_DATABASE=work_entries
 DB_USER=work_entries
 DB_PASSWORD=work_entries123
 DB_ROOT_PASSWORD=root123
-JWT_PASSPHRASE=<tu-passphrase-segura>
+JWT_PASSPHRASE=<your-secure-passphrase>
 ```
 
-### 3. Levantar Docker
+### 3. Start Docker
 
 ```bash
 docker compose up -d --build
 ```
 
-El entrypoint se encargará automáticamente de:
-- Esperar a que MySQL esté disponible
-- Instalar dependencias de Composer
-- Generar las claves JWT (si no existen)
-- Ejecutar migraciones de base de datos
+The entrypoint automatically handles:
+- Waiting for MySQL to be ready
+- Installing Composer dependencies
+- Generating JWT keys (if not present)
+- Running database migrations
 
-### 4. Acceder a la aplicación
+### 4. Access the application
 
-| Servicio | URL |
+| Service | URL |
 |---|---|
 | API (Swagger UI) | http://localhost:8080/api/docs |
-| Login JWT | `POST http://localhost:8080/api/login_check` |
+| JWT Login | `POST http://localhost:8080/api/login_check` |
 
-## Autenticación JWT
+## JWT Authentication
 
-### Obtener un token
+### Obtain a token
 
 ```bash
 curl -X POST http://localhost:8080/api/login_check \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "tu-password"}'
+  -d '{"email": "user@example.com", "password": "your-password"}'
 ```
 
-### Usar el token
+### Use the token
 
 ```bash
 curl http://localhost:8080/api/... \
-  -H "Authorization: Bearer <tu-jwt-token>"
+  -H "Authorization: Bearer <your-jwt-token>"
 ```
 
-## Estructura del Proyecto
+## Project Structure
 
 ```
 work-entries/
 ├── config/
-│   ├── jwt/                    # Claves RSA para JWT (no en repo)
+│   ├── jwt/                    # RSA keys for JWT (not in repo)
 │   └── packages/
-│       ├── api_platform.yaml   # Configuración API Platform
+│       ├── api_platform.yaml   # API Platform configuration
 │       ├── doctrine.yaml       # MySQL 8.0 + Doctrine ORM
 │       ├── lexik_jwt_authentication.yaml
-│       └── security.yaml       # Firewalls JWT
+│       └── security.yaml       # JWT firewalls
 ├── docker/
-│   └── nginx/default.conf      # Configuración Nginx
-├── migrations/                 # Migraciones Doctrine
+│   └── nginx/default.conf      # Nginx configuration
+├── migrations/                 # Doctrine migrations
 ├── src/
-│   ├── Entity/                 # Entidades Doctrine (DDD)
+│   ├── Entity/                 # Doctrine entities (DDD)
 │   ├── Repository/
 │   └── Kernel.php
 ├── docker-compose.yml
@@ -105,30 +105,81 @@ work-entries/
 └── docker-entrypoint.sh
 ```
 
-## Arquitectura
+## Database Schema
 
-El proyecto sigue los principios de:
-- **Arquitectura Hexagonal** (Ports & Adapters)
+### `users`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | `BINARY(16)` | PK, UUID v7 |
+| `name` | `VARCHAR(255)` | NOT NULL |
+| `email` | `VARCHAR(255)` | NOT NULL, UNIQUE |
+| `password` | `VARCHAR(255)` | NOT NULL (hashed) |
+| `created_at` | `DATETIME` | NOT NULL |
+| `updated_at` | `DATETIME` | NOT NULL |
+| `deleted_at` | `DATETIME` | NULL (soft-delete) |
+
+**Indexes:** `UNIQUE (email)`
+
+### `work_entries`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | `BINARY(16)` | PK, UUID v7 |
+| `user_id` | `BINARY(16)` | FK → `users.id` ON DELETE CASCADE |
+| `start_date` | `DATETIME` | NOT NULL |
+| `end_date` | `DATETIME` | NULL |
+| `created_at` | `DATETIME` | NOT NULL |
+| `updated_at` | `DATETIME` | NOT NULL |
+| `deleted_at` | `DATETIME` | NULL (soft-delete) |
+
+**Indexes:**
+- `IDX_F8330BE7A76ED395 (user_id)` — FK lookup, managed automatically by Doctrine
+- `IDX_WE_USER_START_DATE (user_id, start_date)` — composite index that covers the primary query pattern: listing or filtering a user's entries by date range without a full table scan
+
+### Index strategy
+
+Two separate indexes coexist on `work_entries.user_id` rather than a single composite one because MySQL can use a composite index prefix to satisfy a foreign key constraint, but Doctrine validates indexes by exact name — not by column prefix. Replacing the FK index with the composite one would cause `doctrine:schema:validate` to report the schema as out of sync. Keeping both gives optimal query performance while staying compatible with Doctrine's schema tooling.
+
+The `UNIQUE` index on `users.email` is the only index needed on that table: it enforces uniqueness at the database level and doubles as the lookup index for authentication queries.
+
+### Why `BINARY(16)` for UUIDs
+
+UUIDs are stored as `BINARY(16)` instead of the more readable `CHAR(36)`:
+
+| | `CHAR(36)` | `BINARY(16)` |
+|---|---|---|
+| Storage per row | 36 bytes | 16 bytes |
+| Index size | larger | ~56% smaller |
+| Comparison speed | string comparison | binary comparison (faster) |
+| Readability in MySQL | human-readable | requires `BIN_TO_UUID()` |
+
+For a backend API where UUIDs are never read directly from the database console, the performance gains outweigh the readability trade-off. Symfony UID generates UUID v7 values, which are time-ordered and avoid index fragmentation (a common problem with random UUID v4).
+
+## Architecture
+
+This project follows:
+- **Hexagonal Architecture** (Ports & Adapters)
 - **Domain Driven Design (DDD)**
-- **CQRS** – separación de Commands (escritura) y Queries (lectura)
-- **Event Driven** – registro de todos los cambios mediante eventos de dominio
+- **CQRS** — Commands (writes) separated from Queries (reads)
+- **Event Driven** — full audit trail of all changes via domain events
 
-## Comandos Útiles
+## Useful Commands
 
 ```bash
-# Crear una nueva migración tras modificar entidades
+# Create a new migration after modifying entities
 php bin/console make:migration
 
-# Ejecutar migraciones pendientes
+# Run pending migrations
 php bin/console doctrine:migrations:migrate
 
-# Ver rutas registradas
+# List registered routes
 php bin/console debug:router
 
-# Limpiar caché
+# Clear cache
 php bin/console cache:clear
 ```
 
-## CHANGELOG
+## Changelog
 
-Ver [CHANGELOG.md](CHANGELOG.md)
+See [CHANGELOG.md](CHANGELOG.md)

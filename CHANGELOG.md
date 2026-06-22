@@ -1,40 +1,42 @@
 # Changelog
 
-Todos los cambios relevantes de este proyecto están documentados aquí.  
-El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/) y el proyecto usa [Semantic Versioning](https://semver.org/).
+All notable changes to this project are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
 ---
 
 ## [Unreleased]
 
 ### Added
-- Entidad **`User`** (`src/Entity/User.php`): UUID, nombre, email, contraseña (hash), timestamps y soft-delete. Implementa `UserInterface` y `PasswordAuthenticatedUserInterface`.
-- Entidad **`WorkEntry`** (`src/Entity/WorkEntry.php`): UUID, relación ManyToOne con `User`, `startDate`, `endDate` (nullable), timestamps y soft-delete.
-- Migración **`Version20260622174800`**: crea las tablas `users` y `work_entries` con claves UUID (CHAR 36), índices, FK con `ON DELETE CASCADE` y charset `utf8mb4`.
-- **`swagger.yaml`**: especificación OpenAPI 3.0 con esquemas `User`, `WorkEntry`, endpoints CRUD y autenticación JWT (`bearerAuth`).
-- Instalación de `symfony/uid` para soporte nativo de UUID v7.
-- Instalación de `symfony/maker-bundle` (dev) para scaffolding.
-- Instalación y configuración de **Doctrine ORM** con driver MySQL 8.0 y charset `utf8mb4`
-- Instalación y configuración de **LexikJWTAuthenticationBundle** v3 para autenticación JWT
-- Instalación y configuración de **API Platform** v4 como capa de API REST
-- Configuración de `security.yaml` con firewalls JWT para `/api/login_check` y `/api/**`
-- Ruta `api_login_check` en `routes.yaml`
-- Variables de entorno para MySQL en `.env` (`DB_DATABASE`, `DB_USER`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `DB_PORT`, `DATABASE_URL`)
-- `docker-entrypoint.sh` mejorado: espera activa a MySQL, genera claves JWT automáticamente y usa `doctrine:migrations:migrate`
-- `README.md` con instrucciones completas de instalación y uso
+- Entity **`User`** (`src/Entity/User.php`): UUID, name, email, password (hashed), timestamps, and soft-delete. Implements `UserInterface` and `PasswordAuthenticatedUserInterface`.
+- Entity **`WorkEntry`** (`src/Entity/WorkEntry.php`): UUID, ManyToOne relation to `User`, `startDate`, `endDate` (nullable), timestamps, and soft-delete.
+- Migration **`Version20260622174800`**: creates `users` and `work_entries` tables with UUID primary keys in `BINARY(16)`, FK with `ON DELETE CASCADE`, `utf8mb4` charset, and optimised indexes.
+- **`swagger.yaml`**: OpenAPI 3.0 spec with `User` and `WorkEntry` schemas, CRUD endpoints, and JWT authentication (`bearerAuth`).
+- `symfony/uid` for native UUID v7 support.
+- `symfony/maker-bundle` (dev) for scaffolding.
+- **Doctrine ORM** installed and configured with MySQL 8.0 driver and `utf8mb4` charset.
+- **LexikJWTAuthenticationBundle** v3 installed and configured for JWT authentication.
+- **API Platform** v4 installed and configured as the REST API layer.
+- `security.yaml` configured with JWT firewalls for `/api/login_check` and `/api/**`.
+- Route `api_login_check` added to `routes.yaml`.
+- MySQL environment variables in `.env` (`DB_DATABASE`, `DB_USER`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `DB_PORT`, `DATABASE_URL`).
+- `docker-entrypoint.sh`: waits for MySQL readiness, auto-generates JWT keys, and runs `doctrine:migrations:migrate` on every deploy.
+- `README.md` with full installation, architecture, schema, and usage documentation.
 
 ### Changed
-- `config/packages/doctrine.yaml`: eliminada configuración PostgreSQL, establecido MySQL 8.0 con `utf8mb4`
-- `config/packages/api_platform.yaml`: título actualizado a *Work Entries API*, formatos JSON y JSON-LD habilitados
-- `docker-compose.yml`: nombres de contenedores actualizados a `work_entries_*`
-
+- UUID columns changed from `CHAR(36)` to `BINARY(16)`: 56% less storage, faster index comparisons.
+- Composite index `IDX_WE_USER_START_DATE (user_id, start_date)` added to `work_entries`: covers the primary query pattern (entries per user filtered/ordered by date) without a full table scan.
+- `AGENTS.md` migrated to `CLAUDE.md` (Claude Code format) with project conventions and console commands.
+- `config/packages/doctrine.yaml`: removed PostgreSQL configuration, set MySQL 8.0 with `utf8mb4`.
+- `config/packages/api_platform.yaml`: title updated to *Work Entries API*, JSON and JSON-LD formats enabled.
+- `docker-compose.yml`: container names updated to `work_entries_*`.
 
 ---
 
 ## [0.1.0] - 2026-06-22
 
 ### Added
-- Proyecto Symfony 7.4 inicial (skeleton)
-- Docker Compose con servicios: `app` (PHP-FPM), `nginx` (Alpine), `db` (MySQL 8.0)
-- Dockerfile basado en `php:8.2-fpm-alpine` con extensiones `pdo_mysql`, `zip`
-- Sincronización inicial con repositorio GitHub `laralbir/work-entries`
+- Initial Symfony 7.4 skeleton.
+- Docker Compose with services: `app` (PHP-FPM), `nginx` (Alpine), `db` (MySQL 8.0).
+- Dockerfile based on `php:8.2-fpm-alpine` with `pdo_mysql` and `zip` extensions.
+- Initial sync with GitHub repository `laralbir/work-entries`.
