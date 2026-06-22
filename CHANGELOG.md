@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Swagger UI JWT authorization**: `App\ApiResource\OpenApiFactory` decorator adds `security: [{JWT: []}]` globally to the OpenAPI spec so all endpoints display the lock icon in Swagger UI and send the `Authorization: Bearer` header automatically after clicking "Authorize".
+
+---
+
 ## [1.0.0] - 2026-06-22
 
 ### Added

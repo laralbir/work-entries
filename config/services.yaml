@@ -24,3 +24,9 @@ services:
 
     App\Domain\WorkEntry\Repository\WorkEntryRepositoryInterface:
         class: App\Infrastructure\Persistence\WorkEntry\DoctrineWorkEntryRepository
+
+    App\ApiResource\OpenApiFactory:
+        decorates: api_platform.openapi.factory
+        decoration_priority: 1
+        arguments:
+            $decorated: '@.inner'
