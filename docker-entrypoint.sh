@@ -1,38 +1,32 @@
 #!/bin/bash
 set -e
 
-# Esperar a que la base de datos esté lista (opcional pero recomendado)
-# Podríamos usar un script wait-for-it, pero por simplicidad confiaremos en depends_on y un pequeño delay
-sleep 5
+# Esperar a que MySQL esté listo antes de continuar
+echo "Esperando a que la base de datos esté disponible..."
+until php -r "new PDO('mysql:host=db;dbname=${DB_DATABASE}', '${DB_USER}', '${DB_PASSWORD}');" 2>/dev/null; do
+    sleep 2
+    echo "  ... esperando MySQL"
+done
+echo "MySQL disponible."
 
-# 1. Instalar Symfony Skeleton si no existe (evita sobreescribir si ya está instalado)
-if [ ! -f "bin/console" ]; then
-    echo "Inicializando proyecto Symfony 7.4..."
-    composer create-project symfony/skeleton:^7.4 tmp
-    cp -a tmp/. .
-    rm -rf tmp
-fi
-
-# 2. Instalar dependencias de Composer
+# 1. Instalar dependencias de Composer
 echo "Instalando dependencias de Composer..."
 composer install --no-interaction --optimize-autoloader
 
-# 3. Validar existencia de claves JWT
+# 2. Validar existencia de claves JWT
 if [ ! -f "config/jwt/private.pem" ]; then
-    echo "⚠️ ADVERTENCIA: Las claves JWT no existen en config/jwt/. Revisa el README para saber cómo generarlas por primera vez."
+    echo "⚠️  Claves JWT no encontradas. Generando..."
+    php bin/console lexik:jwt:generate-keypair --no-interaction
 fi
 
-# 4. Ejecutar migraciones de base de datos
-echo "Ejecutando migraciones..."
-# php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
-# Como no hemos generado los archivos de migración físicamente en el repo, 
-# si doctrine lanza error por falta de migraciones previas o DB no iniciada, continuamos
-php bin/console doctrine:schema:update --force || true
+# 3. Ejecutar migraciones
+echo "Ejecutando migraciones de base de datos..."
+php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
-# Asignar permisos correctos a carpetas generadas
+# 4. Permisos correctos
 chown -R www-data:www-data var config/jwt || true
 
-echo "Despliegue continuo finalizado. Iniciando aplicación..."
+echo "✅ Despliegue finalizado. Iniciando aplicación..."
 
 # Ejecutar el CMD original (php-fpm)
 exec "$@"

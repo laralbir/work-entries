@@ -9,3 +9,7 @@
 
 controllers:
     resource: routing.controllers
+
+# JWT Authentication
+api_login_check:
+    path: /api/login_check
