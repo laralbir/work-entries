@@ -19,9 +19,9 @@ class UserTest extends ApiTestCase
     {
         $response = static::createClient()->request('POST', '/api/users', [
             'json' => [
-                'name'          => 'Alice',
-                'email'         => 'alice@example.com',
-                'plainPassword' => 'password123',
+                'name'     => 'Alice',
+                'email'    => 'alice@example.com',
+                'password' => 'password123',
             ],
         ]);
 
@@ -37,7 +37,7 @@ class UserTest extends ApiTestCase
     public function testRegisterUserValidationFailsOnBlankName(): void
     {
         static::createClient()->request('POST', '/api/users', [
-            'json' => ['name' => '', 'email' => 'x@x.com', 'plainPassword' => 'password123'],
+            'json' => ['name' => '', 'email' => 'x@x.com', 'password' => 'password123'],
         ]);
 
         $this->assertResponseStatusCodeSame(422);
@@ -46,7 +46,7 @@ class UserTest extends ApiTestCase
     public function testRegisterUserValidationFailsOnBlankPassword(): void
     {
         static::createClient()->request('POST', '/api/users', [
-            'json' => ['name' => 'Alice', 'email' => 'alice@example.com', 'plainPassword' => ''],
+            'json' => ['name' => 'Alice', 'email' => 'alice@example.com', 'password' => ''],
         ]);
 
         $this->assertResponseStatusCodeSame(422);
@@ -55,9 +55,20 @@ class UserTest extends ApiTestCase
     public function testRegisterUserValidationFailsOnShortPassword(): void
     {
         static::createClient()->request('POST', '/api/users', [
-            'json' => ['name' => 'Alice', 'email' => 'alice@example.com', 'plainPassword' => 'short'],
+            'json' => ['name' => 'Alice', 'email' => 'alice@example.com', 'password' => 'short'],
         ]);
 
+        $this->assertResponseStatusCodeSame(422);
+    }
+
+    public function testRegisterUserValidationFailsOnDuplicateEmail(): void
+    {
+        $payload = ['name' => 'Alice', 'email' => 'alice@example.com', 'password' => 'password123'];
+
+        static::createClient()->request('POST', '/api/users', ['json' => $payload]);
+        $this->assertResponseStatusCodeSame(201);
+
+        static::createClient()->request('POST', '/api/users', ['json' => $payload]);
         $this->assertResponseStatusCodeSame(422);
     }
 

@@ -21,9 +21,11 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
 use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -58,6 +60,7 @@ use Symfony\Component\Validator\Constraints as Assert;
     normalizationContext: ['groups' => ['user:read']],
     denormalizationContext: ['groups' => ['user:write']],
 )]
+#[UniqueEntity(fields: ['email'], message: 'This email is already in use.')]
 #[ORM\Entity]
 #[ORM\Table(name: 'users')]
 #[ORM\HasLifecycleCallbacks]
@@ -89,6 +92,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     /** Not persisted — carries the plain-text password during deserialization only. */
     #[Groups(['user:write'])]
+    #[SerializedName('password')]
     #[Assert\NotBlank(groups: ['user:create'])]
     #[Assert\Length(min: 8)]
     private ?string $plainPassword = null;
