@@ -15,6 +15,7 @@
 - Actauliza el fichero swagger.yaml con las nuevas rutas, entidades y cambios realizados.
 - Añadir tests con phpunit a todos los endpoints y funcionalidades existentes.
 - El sistema debe permitir a los empleados registrar sus entradas y salidas, así como visualizar un registro de todos sus fichajes. Cada fichaje debe contener la información de la fecha y la hora de entrada/salida, el empleado asociado y cualquier información adicional relevante.
+- Tanto Readme.md, Changelog.md y swagger.yaml deben estar en ingles.
 
 # Comandos de consola
 - `bin/console make:migration`: Crea una nueva migración.
