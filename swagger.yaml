@@ -1,0 +1,389 @@
+openapi: "3.0.3"
+info:
+  title: Work Entries API
+  description: >
+    API REST para la gestión de fichajes de empleados.
+    Todos los endpoints (excepto /api/login_check) requieren autenticación JWT.
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:8080/api
+    description: Entorno local (Docker)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # -----------------------------------------------------------------------
+    # User
+    # -----------------------------------------------------------------------
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          example: "018f1b2c-3d4e-7f89-a012-b3c4d5e6f789"
+        name:
+          type: string
+          example: "María García"
+        email:
+          type: string
+          format: email
+          example: "maria@example.com"
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+
+    UserCreate:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          example: "María García"
+        email:
+          type: string
+          format: email
+          example: "maria@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "S3cur3P@ssw0rd"
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+
+    # -----------------------------------------------------------------------
+    # WorkEntry
+    # -----------------------------------------------------------------------
+    WorkEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          example: "018f1b2c-aaaa-7f89-a012-b3c4d5e6f789"
+        userId:
+          type: string
+          format: uuid
+          example: "018f1b2c-3d4e-7f89-a012-b3c4d5e6f789"
+        startDate:
+          type: string
+          format: date-time
+          example: "2026-06-22T08:00:00+02:00"
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-06-22T16:00:00+02:00"
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+
+    WorkEntryCreate:
+      type: object
+      required: [startDate]
+      properties:
+        startDate:
+          type: string
+          format: date-time
+          example: "2026-06-22T08:00:00+02:00"
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+
+    WorkEntryUpdate:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+
+    # -----------------------------------------------------------------------
+    # Auth
+    # -----------------------------------------------------------------------
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token válido para autenticar el resto de peticiones
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ---------------------------------------------------------------------------
+  # Auth
+  # ---------------------------------------------------------------------------
+  /login_check:
+    post:
+      tags: [Auth]
+      summary: Obtener token JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        "200":
+          description: Token JWT generado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        "401":
+          description: Credenciales inválidas
+
+  # ---------------------------------------------------------------------------
+  # Users
+  # ---------------------------------------------------------------------------
+  /users:
+    get:
+      tags: [Users]
+      summary: Listar usuarios
+      responses:
+        "200":
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        "401":
+          description: No autorizado
+    post:
+      tags: [Users]
+      summary: Crear usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        "201":
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "400":
+          description: Datos inválidos
+        "401":
+          description: No autorizado
+
+  /users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Users]
+      summary: Obtener usuario por ID
+      responses:
+        "200":
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "401":
+          description: No autorizado
+        "404":
+          description: Usuario no encontrado
+    put:
+      tags: [Users]
+      summary: Actualizar usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        "200":
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "400":
+          description: Datos inválidos
+        "401":
+          description: No autorizado
+        "404":
+          description: Usuario no encontrado
+    delete:
+      tags: [Users]
+      summary: Eliminar usuario (soft delete)
+      responses:
+        "204":
+          description: Usuario eliminado (soft delete)
+        "401":
+          description: No autorizado
+        "404":
+          description: Usuario no encontrado
+
+  # ---------------------------------------------------------------------------
+  # Work Entries
+  # ---------------------------------------------------------------------------
+  /work-entries:
+    get:
+      tags: [WorkEntries]
+      summary: Listar fichajes del usuario autenticado
+      responses:
+        "200":
+          description: Lista de fichajes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkEntry'
+        "401":
+          description: No autorizado
+    post:
+      tags: [WorkEntries]
+      summary: Crear fichaje (clock-in)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkEntryCreate'
+      responses:
+        "201":
+          description: Fichaje creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkEntry'
+        "400":
+          description: Datos inválidos
+        "401":
+          description: No autorizado
+
+  /work-entries/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [WorkEntries]
+      summary: Obtener fichaje por ID
+      responses:
+        "200":
+          description: Fichaje encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkEntry'
+        "401":
+          description: No autorizado
+        "404":
+          description: Fichaje no encontrado
+    put:
+      tags: [WorkEntries]
+      summary: Actualizar fichaje (p.ej. registrar clock-out)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkEntryUpdate'
+      responses:
+        "200":
+          description: Fichaje actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkEntry'
+        "400":
+          description: Datos inválidos
+        "401":
+          description: No autorizado
+        "404":
+          description: Fichaje no encontrado
+    delete:
+      tags: [WorkEntries]
+      summary: Eliminar fichaje (soft delete)
+      responses:
+        "204":
+          description: Fichaje eliminado (soft delete)
+        "401":
+          description: No autorizado
+        "404":
+          description: Fichaje no encontrado

@@ -1,32 +1,25 @@
 #!/bin/bash
 set -e
 
-# Esperar a que MySQL esté listo antes de continuar
-echo "Esperando a que la base de datos esté disponible..."
-until php -r "new PDO('mysql:host=db;dbname=${DB_DATABASE}', '${DB_USER}', '${DB_PASSWORD}');" 2>/dev/null; do
-    sleep 2
-    echo "  ... esperando MySQL"
-done
-echo "MySQL disponible."
+# La base de datos ya está disponible gracias al healthcheck de docker-compose
+echo "✅ MySQL disponible (garantizado por healthcheck)."
 
-# 1. Instalar dependencias de Composer
-echo "Instalando dependencias de Composer..."
+# 1. Instalar dependencias de Composer (si vendor no existe o está incompleto)
+echo "📦 Instalando dependencias de Composer..."
 composer install --no-interaction --optimize-autoloader
 
-# 2. Validar existencia de claves JWT
+# 2. Generar claves JWT si no existen
 if [ ! -f "config/jwt/private.pem" ]; then
-    echo "⚠️  Claves JWT no encontradas. Generando..."
+    echo "🔑 Generando claves JWT..."
     php bin/console lexik:jwt:generate-keypair --no-interaction
 fi
 
 # 3. Ejecutar migraciones
-echo "Ejecutando migraciones de base de datos..."
+echo "🗄️  Ejecutando migraciones..."
 php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
-# 4. Permisos correctos
-chown -R www-data:www-data var config/jwt || true
+# 4. Permisos
+chown -R www-data:www-data var config/jwt 2>/dev/null || true
 
-echo "✅ Despliegue finalizado. Iniciando aplicación..."
-
-# Ejecutar el CMD original (php-fpm)
+echo "🚀 Despliegue finalizado. Iniciando aplicación..."
 exec "$@"
