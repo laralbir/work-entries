@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ---
 
+## [1.1.1] - 2026-06-23
+
+### Removed
+- Empty `.gitignore` placeholder files from `src/ApiResource/`, `src/Controller/`, and `src/Entity/` (directories now contain real code).
+- Unused `src/Repository/` directory (leftover Symfony skeleton; replaced by `src/Domain/*/Repository/` in the hexagonal architecture).
+
+---
+
 ## [1.1.0] - 2026-06-23
 
 ### Added
