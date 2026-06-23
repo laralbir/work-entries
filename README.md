@@ -438,6 +438,92 @@ HTTP GET /api/work-entries
 - **Commands return the entity**: Pure CQRS Commands return `void`. Here they return the persisted entity because API Platform needs it to serialize the HTTP response. This is a deliberate pragmatic trade-off.
 - **Queries return entities, not DTOs**: Entities carry serialization groups (`#[Groups]`) already, so a separate read model would be redundant at this scale.
 
+### Domain Driven Design
+
+The project organises code around the **business domain**, not around technical layers. The core idea is that the domain model — the entities, their behaviour, and the contracts they need — lives independently of frameworks, databases, and HTTP.
+
+#### Bounded contexts
+
+The domain is split into three contexts, each with its own namespace under `src/Domain/`:
+
+| Context | Responsibility |
+|---|---|
+| `User` | Account management: registration, authentication identity, soft-delete |
+| `WorkEntry` | Time-tracking: clock-in/out, manual entries, overlap rules |
+| `Auth` | Security cross-cut: JWT revocation denylist |
+
+Each context owns its repository interface and its domain events. Infrastructure adapters and application handlers map to the same context breakdown.
+
+#### Entities as the domain model
+
+Entities are not anemic data containers. They encapsulate **business behaviour** and enforce **invariants**:
+
+```php
+// Business operation as a method, not a raw setter
+$workEntry->softDelete();   // sets deletedAt = now()
+$workEntry->restore();      // clears deletedAt
+$workEntry->isActive();     // deletedAt IS NULL AND endDate IS NULL
+
+$user->softDelete();
+$user->eraseCredentials();  // wipes plainPassword from memory after use
+```
+
+The constructor enforces required state — a `WorkEntry` cannot exist without a `User` and a `startDate`:
+
+```php
+public function __construct(User $user, \DateTimeImmutable $startDate, ?\DateTimeImmutable $endDate = null)
+```
+
+#### Ubiquitous language
+
+The code uses business terminology consistently:
+
+| Code | Business meaning |
+|---|---|
+| `clockIn()` / `clockOut()` | Start / end a work shift |
+| `softDelete()` / `restore()` | Archive / unarchive a record |
+| `isActive()` | Entry is running (no end date, not deleted) |
+| `findOverlapping()` | Repository method named after the business rule it serves |
+| `WorkEntry` | The domain term for a time-tracking record |
+| `jti` | JWT ID — the token's identity within the Auth context |
+
+#### Repository interfaces as domain ports
+
+The domain defines **what** it needs from persistence — not how. Application handlers depend only on the interface; Doctrine is invisible to them:
+
+```php
+// Domain port — zero infrastructure imports
+interface WorkEntryRepositoryInterface
+{
+    public function findById(Uuid $id): ?WorkEntry;
+    public function findOverlapping(User $user, \DateTimeImmutable $start, ?\DateTimeImmutable $end, ?Uuid $excludeId = null): array;
+    public function save(WorkEntry $workEntry): void;
+    public function flush(): void;
+    // …
+}
+```
+
+The binding between port and adapter is declared in `config/services.yaml`:
+
+```yaml
+App\Domain\WorkEntry\Repository\WorkEntryRepositoryInterface:
+    class: App\Infrastructure\Persistence\WorkEntry\DoctrineWorkEntryRepository
+```
+
+Swapping the database engine (e.g. to PostgreSQL or an in-memory store for tests) requires changing only this one line and the adapter class.
+
+#### Soft deletes as a domain policy
+
+Records are never hard-deleted. `deletedAt` is a domain concept, not just a database trick — every repository method filters `deletedAt IS NULL` automatically, and the entity exposes `softDelete()` / `restore()` / `isDeleted()` as first-class operations.
+
+#### Pragmatic simplifications
+
+This project uses DDD selectively. Some stricter patterns are intentionally omitted:
+
+- **No value objects**: `email`, dates, and IDs are primitives. A stricter model would wrap them (`EmailAddress`, `DateRange`, `WorkEntryId`). At this scale, the added indirection isn't justified.
+- **No pure domain services**: the overlap rule lives in `CreateWorkEntryHandler`, not in a separate `OverlapChecker` domain service. The handler is small enough that extracting it would be ceremony.
+- **Entities carry ORM and serialization annotations**: in strict DDD, the domain model is persistence-ignorant. Here, `#[ORM\*]` and `#[Groups]` annotations live on the entity class — the pragmatic Symfony convention, avoiding a separate mapping layer.
+
 ## Useful Commands
 
 All commands run inside the application container (`work_entries_app`):
