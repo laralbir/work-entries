@@ -280,6 +280,105 @@ This project follows:
 - **CQRS** — Commands (writes) separated from Queries (reads)
 - **Event Driven** — full audit trail of all changes via domain events
 
+### Hexagonal Architecture
+
+The core idea is that the **Application Core** (domain model + use-case handlers) defines what it needs from the outside world via interfaces — called **ports** — and external systems plug in through **adapters**. The core never depends on HTTP, Doctrine, or any framework concern.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   DRIVING SIDE                          │
+│  HTTP requests, tests                                   │
+│  (State Processors/Providers, RevokeTokenController)    │
+└────────────────────────┬────────────────────────────────┘
+                         │  calls
+          ┌──────────────▼──────────────┐
+          │      APPLICATION CORE       │
+          │  src/Application/  (CQRS)   │
+          │  src/Domain/       (ports)  │
+          │  src/Entity/       (model)  │
+          └──────────────┬──────────────┘
+                         │  drives
+┌────────────────────────▼────────────────────────────────┐
+│                   DRIVEN SIDE                           │
+│  Doctrine repositories, event listeners, JWT adapters  │
+│  (src/Infrastructure/)                                  │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### The ports
+
+A port is an interface defined inside the core. It expresses a need in domain terms, with no knowledge of how it will be fulfilled.
+
+| Port | Where defined | What it expresses |
+|---|---|---|
+| `WorkEntryRepositoryInterface` | `Domain/WorkEntry/Repository/` | How to persist and query work entries |
+| `UserRepositoryInterface` | `Domain/User/Repository/` | How to persist and query users |
+| `RevokedTokenRepositoryInterface` | `Domain/Auth/Repository/` | How to store and check revoked JWTs |
+| `LoggerInterface` (PSR-3) | external standard | How to emit log messages |
+
+#### The adapters
+
+An adapter implements a port using a specific technology. Swapping it out requires no changes to the core.
+
+**Driven adapters** (the core calls these):
+
+| Adapter | Port it implements | Technology |
+|---|---|---|
+| `DoctrineWorkEntryRepository` | `WorkEntryRepositoryInterface` | Doctrine ORM + MySQL |
+| `DoctrineUserRepository` | `UserRepositoryInterface` | Doctrine ORM + MySQL |
+| `DoctrineRevokedTokenRepository` | `RevokedTokenRepositoryInterface` | Doctrine ORM + MySQL |
+| `WorkEntryEventListener` | _(driven by event dispatcher)_ | PSR-3 logger → stderr |
+| `JwtDecodedListener` | _(driven by Lexik JWT bundle)_ | Checks `RevokedTokenRepositoryInterface` |
+| `JwtCreatedListener` | _(driven by Lexik JWT bundle)_ | Injects `jti` into JWT payload |
+
+**Driving adapters** (these call the core):
+
+| Adapter | Technology | What it drives |
+|---|---|---|
+| `WorkEntryCreateProcessor` | API Platform `ProcessorInterface` | Calls `CreateWorkEntryHandler` |
+| `WorkEntryCollectionProvider` | API Platform `ProviderInterface` | Calls `ListWorkEntriesHandler` |
+| `UserItemProvider` | API Platform `ProviderInterface` | Calls `GetUserHandler` |
+| _(all other State classes)_ | API Platform | Corresponding Command/Query handlers |
+| `RevokeTokenController` | Symfony controller | Calls `RevokeTokenHandler` |
+| `tests/Api/*` | PHPUnit + HTTP client | Drives everything through the HTTP port |
+
+#### The dependency rule
+
+The dependency arrow always points **inward**. The core knows nothing about what is outside:
+
+```
+State/  ──→  Application/  ──→  Domain/  (zero framework imports)
+Infrastructure/  ──→  Domain/             (implements ports)
+```
+
+Application handlers never import from `Symfony\Component\HttpFoundation`, `Doctrine\ORM\EntityManager`, or any infrastructure namespace. They only ever see:
+- Domain interfaces (`WorkEntryRepositoryInterface`)
+- Domain entities (`WorkEntry`, `User`)
+- Standard PHP (`\DateTimeImmutable`, `\Throwable`)
+- Symfony's event dispatcher and HTTP exception classes *(see pragmatic simplifications below)*
+
+#### How the port binding is declared
+
+```yaml
+# config/services.yaml
+App\Domain\WorkEntry\Repository\WorkEntryRepositoryInterface:
+    class: App\Infrastructure\Persistence\WorkEntry\DoctrineWorkEntryRepository
+
+App\Domain\User\Repository\UserRepositoryInterface:
+    class: App\Infrastructure\Persistence\User\DoctrineUserRepository
+
+App\Domain\Auth\Repository\RevokedTokenRepositoryInterface:
+    class: App\Infrastructure\Persistence\Auth\DoctrineRevokedTokenRepository
+```
+
+Three lines. Replacing the database requires only changing these lines and writing a new adapter class.
+
+#### Pragmatic simplifications
+
+- **HTTP exceptions in the Application layer**: handlers throw `NotFoundHttpException`, `UnprocessableEntityHttpException`, etc. from `symfony/http-kernel`. In strict hexagonal, the domain would throw its own exceptions and each driving adapter would map them to status codes. The current approach saves boilerplate at the cost of a direct Symfony dependency inside the core.
+- **`EventDispatcherInterface` is Symfony's**: in strict hexagonal, the core would define its own `EventPublisherInterface` port. Using Symfony's interface directly is a common and accepted trade-off in Symfony projects.
+- **`src/State/` is not a true port**: it is an adapter namespace, but it couples to API Platform's `ProviderInterface` / `ProcessorInterface` directly rather than to a project-defined port. This is fine while API Platform is the only HTTP adapter.
+
 ### Event-Driven system
 
 Every write operation that changes meaningful state dispatches a domain event after the data is persisted. The flow is:
