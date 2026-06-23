@@ -157,7 +157,7 @@ Returns `204 No Content`. The token is added to a server-side denylist keyed by 
 
 #### Pagination response format
 
-All collection endpoints return:
+The list endpoints (`GET /api/users` and `GET /api/work-entries`) return:
 
 ```json
 {

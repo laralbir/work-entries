@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ---
 
+## [1.1.5] - 2026-06-23
+
+### Fixed
+- `README.md`: corrected pagination section — "All collection endpoints" replaced with the specific endpoints that support pagination (`GET /api/users` and `GET /api/work-entries`).
+
+---
+
 ## [1.1.4] - 2026-06-23
 
 ### Changed
