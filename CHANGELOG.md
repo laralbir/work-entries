@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ---
 
+## [1.1.4] - 2026-06-23
+
+### Changed
+- Version/name centralized in `composer.json`; `HomeController` and `OpenApiFactory` now read `app.name` and `app.version` from DI parameters (sourced via `config/services.php`) instead of hardcoded strings.
+- Removed hardcoded `title` and `version` from `config/packages/api_platform.yaml`.
+- `swagger.yaml`: removed `GET /` root endpoint entry.
+
+---
+
 ## [1.1.3] - 2026-06-23
 
 ### Added

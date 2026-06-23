@@ -1,6 +1,4 @@
 api_platform:
-    title: 'Work Entries API'
-    version: '1.0.1'
     enable_swagger_ui: true
     path_segment_name_generator: api_platform.path_segment_name_generator.dash
     defaults:
