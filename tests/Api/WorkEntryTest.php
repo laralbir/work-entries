@@ -24,7 +24,7 @@ class WorkEntryTest extends ApiTestCase
 
         $response = static::createClient()->request(
             'POST',
-            '/api/work_entries/clock-in',
+            '/api/work-entries/clock-in',
             $this->authHeaders($token),
         );
 
@@ -45,12 +45,12 @@ class WorkEntryTest extends ApiTestCase
         $token  = $this->getToken('alice@example.com', 'password123');
         $client = static::createClient();
 
-        $clockInResponse = $client->request('POST', '/api/work_entries/clock-in', $this->authHeaders($token));
+        $clockInResponse = $client->request('POST', '/api/work-entries/clock-in', $this->authHeaders($token));
         $id = $clockInResponse->toArray()['id'];
 
         $clockOutResponse = $client->request(
             'POST',
-            '/api/work_entries/' . $id . '/clock-out',
+            '/api/work-entries/' . $id . '/clock-out',
             $this->authHeaders($token),
         );
 
@@ -64,10 +64,10 @@ class WorkEntryTest extends ApiTestCase
         $token  = $this->getToken('alice@example.com', 'password123');
         $client = static::createClient();
 
-        $id = $client->request('POST', '/api/work_entries/clock-in', $this->authHeaders($token))->toArray()['id'];
-        $client->request('POST', '/api/work_entries/' . $id . '/clock-out', $this->authHeaders($token));
+        $id = $client->request('POST', '/api/work-entries/clock-in', $this->authHeaders($token))->toArray()['id'];
+        $client->request('POST', '/api/work-entries/' . $id . '/clock-out', $this->authHeaders($token));
 
-        $client->request('POST', '/api/work_entries/' . $id . '/clock-out', $this->authHeaders($token));
+        $client->request('POST', '/api/work-entries/' . $id . '/clock-out', $this->authHeaders($token));
         $this->assertResponseStatusCodeSame(422);
     }
 
@@ -87,7 +87,7 @@ class WorkEntryTest extends ApiTestCase
         $em->flush();
 
         $token    = $this->getToken('alice@example.com', 'password123');
-        $response = static::createClient()->request('GET', '/api/work_entries', $this->authHeaders($token));
+        $response = static::createClient()->request('GET', '/api/work-entries', $this->authHeaders($token));
 
         $this->assertResponseIsSuccessful();
         $data = $response->toArray();
@@ -96,7 +96,7 @@ class WorkEntryTest extends ApiTestCase
 
     public function testGetCollectionRequiresAuth(): void
     {
-        static::createClient()->request('GET', '/api/work_entries');
+        static::createClient()->request('GET', '/api/work-entries');
         $this->assertResponseStatusCodeSame(401);
     }
 
@@ -119,7 +119,7 @@ class WorkEntryTest extends ApiTestCase
 
         static::createClient()->request(
             'GET',
-            '/api/work_entries/' . $entryId,
+            '/api/work-entries/' . $entryId,
             $this->authHeaders($token),
         );
 
@@ -135,7 +135,7 @@ class WorkEntryTest extends ApiTestCase
         $this->createUser('alice@example.com', 'password123', 'Alice');
         $token = $this->getToken('alice@example.com', 'password123');
 
-        $response = static::createClient()->request('POST', '/api/work_entries', [
+        $response = static::createClient()->request('POST', '/api/work-entries', [
             'json'    => ['startDate' => '2026-06-22T09:00:00+00:00'],
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
@@ -160,7 +160,7 @@ class WorkEntryTest extends ApiTestCase
 
         $response = static::createClient()->request(
             'PATCH',
-            '/api/work_entries/' . $entry->getId()->toRfc4122(),
+            '/api/work-entries/' . $entry->getId()->toRfc4122(),
             [
                 'json'    => ['startDate' => '2026-06-22T10:00:00+00:00'],
                 'headers' => [
@@ -188,7 +188,7 @@ class WorkEntryTest extends ApiTestCase
 
         static::createClient()->request(
             'PATCH',
-            '/api/work_entries/' . $entryId,
+            '/api/work-entries/' . $entryId,
             [
                 'json'    => ['startDate' => '2026-06-22T10:00:00+00:00'],
                 'headers' => [
@@ -216,10 +216,10 @@ class WorkEntryTest extends ApiTestCase
         $token = $this->getToken('alice@example.com', 'password123');
         $id    = $entry->getId()->toRfc4122();
 
-        static::createClient()->request('DELETE', '/api/work_entries/' . $id, $this->authHeaders($token));
+        static::createClient()->request('DELETE', '/api/work-entries/' . $id, $this->authHeaders($token));
         $this->assertResponseStatusCodeSame(204);
 
-        static::createClient()->request('GET', '/api/work_entries/' . $id, $this->authHeaders($token));
+        static::createClient()->request('GET', '/api/work-entries/' . $id, $this->authHeaders($token));
         $this->assertResponseStatusCodeSame(404);
     }
 
@@ -237,7 +237,7 @@ class WorkEntryTest extends ApiTestCase
 
         static::createClient()->request(
             'DELETE',
-            '/api/work_entries/' . $entryId,
+            '/api/work-entries/' . $entryId,
             $this->authHeaders($token),
         );
 

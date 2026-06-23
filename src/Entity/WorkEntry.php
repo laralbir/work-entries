@@ -56,13 +56,13 @@ use Symfony\Component\Validator\Constraints as Assert;
             processor: WorkEntryDeleteProcessor::class,
         ),
         new Post(
-            uriTemplate: '/work_entries/clock-in',
+            uriTemplate: '/work-entries/clock-in',
             name: 'work_entry_clock_in',
             input: false,
             processor: ClockInProcessor::class,
         ),
         new Post(
-            uriTemplate: '/work_entries/{id}/clock-out',
+            uriTemplate: '/work-entries/{id}/clock-out',
             name: 'work_entry_clock_out',
             input: false,
             processor: ClockOutProcessor::class,

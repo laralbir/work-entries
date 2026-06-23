@@ -7,14 +7,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ## [Unreleased]
 
+---
+
+## [1.0.1] - 2026-06-23
+
 ### Added
 - Test `testRegisterUserValidationFailsOnDuplicateEmail`: asserts that registering with an already-used email returns 422 instead of a 500 DB integrity error.
+- `ApiExceptionListener`: converts any non-JSON exception on `/api/*` routes to a JSON response, preventing HTML error pages from leaking.
+- `CLAUDE.md`: extended with architecture overview, layer responsibilities, data flow diagram, serialization groups, security rules, and testing commands.
 
 ### Fixed
 - **Swagger UI JWT authorization**: `App\ApiResource\OpenApiFactory` decorator adds `security: [{JWT: []}]` globally to the OpenAPI spec so all endpoints display the lock icon in Swagger UI and send the `Authorization: Bearer` header automatically after clicking "Authorize".
 - **Duplicate email returns 422**: added `#[UniqueEntity(fields: ['email'])]` to `User` so the validator catches the constraint before Doctrine throws a SQL integrity violation.
 - **User registration field name**: `plainPassword` property is now serialized as `password` via `#[SerializedName('password')]`; the API now accepts `{"password": "..."}` instead of `{"plainPassword": "..."}`.
-- **Tests updated**: all `POST /api/users` request bodies in `UserTest` changed from `plainPassword` to `password` to match the new serialized name.
+- **Clock-in/clock-out URI**: changed from `/api/work_entries/clock-in` to `/api/work-entries/clock-in` (and `/{id}/clock-out`) to match the dash-based URL convention enforced by `path_segment_name_generator`.
+- **Tests updated**: all `/api/work_entries/*` URLs in `WorkEntryTest` updated to `/api/work-entries/*`; all `POST /api/users` request bodies changed from `plainPassword` to `password`.
 
 ---
 

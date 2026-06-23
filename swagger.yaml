@@ -4,7 +4,7 @@ info:
   description: >
     API REST para la gestión de fichajes de empleados.
     Todos los endpoints (excepto /api/login_check) requieren autenticación JWT.
-  version: "1.0.0"
+  version: "1.0.1"
 
 servers:
   - url: http://localhost:8080/api
