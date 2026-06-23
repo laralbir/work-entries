@@ -3,8 +3,9 @@ info:
   title: Work Entries API
   description: >
     API REST para la gestión de fichajes de empleados.
-    Todos los endpoints (excepto /api/login_check) requieren autenticación JWT.
-  version: "1.0.1"
+    La mayoría de endpoints requieren autenticación JWT (Bearer token).
+    Los endpoints públicos son: POST /login_check, POST /users, y GET /docs.
+  version: "1.1.0"
 
 servers:
   - url: http://localhost:8080/api
@@ -80,6 +81,32 @@ components:
           format: password
           minLength: 8
 
+    UserCollection:
+      type: object
+      properties:
+        member:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        totalItems:
+          type: integer
+          example: 3
+        view:
+          type: object
+          properties:
+            "@id":
+              type: string
+            type:
+              type: string
+            first:
+              type: string
+            last:
+              type: string
+            next:
+              type: string
+            previous:
+              type: string
+
     # -----------------------------------------------------------------------
     # WorkEntry
     # -----------------------------------------------------------------------
@@ -143,6 +170,32 @@ components:
           format: date-time
           nullable: true
 
+    WorkEntryCollection:
+      type: object
+      properties:
+        member:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkEntry'
+        totalItems:
+          type: integer
+          example: 42
+        view:
+          type: object
+          properties:
+            "@id":
+              type: string
+            type:
+              type: string
+            first:
+              type: string
+            last:
+              type: string
+            next:
+              type: string
+            previous:
+              type: string
+
     # -----------------------------------------------------------------------
     # Auth
     # -----------------------------------------------------------------------
@@ -167,10 +220,30 @@ components:
     Error:
       type: object
       properties:
-        code:
+        status:
           type: integer
-        message:
+        detail:
           type: string
+
+    ValidationError:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 422
+        detail:
+          type: string
+          example: "name: This value should not be blank."
+
+    OverlapError:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 422
+        detail:
+          type: string
+          example: "Work entry overlaps with an existing entry."
 
 security:
   - bearerAuth: []
@@ -179,6 +252,21 @@ paths:
   # ---------------------------------------------------------------------------
   # Auth
   # ---------------------------------------------------------------------------
+  /auth/revoke:
+    post:
+      tags: [Auth]
+      summary: Revocar el token JWT actual (logout)
+      description: >
+        Añade el token actual a la lista de revocados. Cualquier petición posterior
+        con ese token recibirá un 401, aunque el token no haya expirado todavía.
+        Cada token tiene un `jti` (JWT ID) único, por lo que revocar un token no
+        afecta a otras sesiones del mismo usuario.
+      responses:
+        "204":
+          description: Token revocado correctamente
+        "401":
+          description: No autorizado (token ausente, inválido o ya revocado)
+
   /login_check:
     post:
       tags: [Auth]
@@ -206,21 +294,50 @@ paths:
   /users:
     get:
       tags: [Users]
-      summary: Listar usuarios
+      summary: Listar usuarios (con filtros de nombre y email)
+      parameters:
+        - name: name
+          in: query
+          required: false
+          description: Filtro parcial e insensible a mayúsculas sobre el nombre (e.g. "ali" encuentra "Alice")
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: false
+          description: Filtro parcial e insensible a mayúsculas sobre el email (e.g. "example" encuentra "alice@example.com")
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          description: Número de página (por defecto 1)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: itemsPerPage
+          in: query
+          required: false
+          description: Elementos por página (por defecto 20, máximo 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         "200":
           description: Lista de usuarios
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/UserCollection'
         "401":
           description: No autorizado
     post:
       tags: [Users]
-      summary: Crear usuario
+      summary: Registrar nuevo usuario (público)
+      security: []
       requestBody:
         required: true
         content:
@@ -234,10 +351,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-        "400":
-          description: Datos inválidos
-        "401":
-          description: No autorizado
+        "422":
+          description: Datos inválidos (nombre vacío, contraseña corta, email duplicado)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
 
   /users/{id}:
     parameters:
@@ -249,7 +368,7 @@ paths:
           format: uuid
     get:
       tags: [Users]
-      summary: Obtener usuario por ID
+      summary: Obtener usuario por ID (solo el propio)
       responses:
         "200":
           description: Usuario encontrado
@@ -259,11 +378,41 @@ paths:
                 $ref: '#/components/schemas/User'
         "401":
           description: No autorizado
+        "403":
+          description: Prohibido — solo se puede consultar el propio perfil
         "404":
           description: Usuario no encontrado
+    patch:
+      tags: [Users]
+      summary: Actualizar parcialmente el propio perfil
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        "200":
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "401":
+          description: No autorizado
+        "403":
+          description: Prohibido — solo se puede editar el propio perfil
+        "404":
+          description: Usuario no encontrado
+        "422":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
     put:
       tags: [Users]
-      summary: Actualizar usuario
+      summary: Reemplazar el propio perfil completo
       requestBody:
         required: true
         content:
@@ -277,20 +426,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-        "400":
-          description: Datos inválidos
         "401":
           description: No autorizado
+        "403":
+          description: Prohibido — solo se puede editar el propio perfil
         "404":
           description: Usuario no encontrado
+        "422":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
     delete:
       tags: [Users]
-      summary: Eliminar usuario (soft delete)
+      summary: Eliminar el propio usuario (soft delete)
       responses:
         "204":
           description: Usuario eliminado (soft delete)
         "401":
           description: No autorizado
+        "403":
+          description: Prohibido — solo se puede eliminar el propio perfil
         "404":
           description: Usuario no encontrado
 
@@ -300,21 +457,53 @@ paths:
   /work-entries:
     get:
       tags: [WorkEntries]
-      summary: Listar fichajes del usuario autenticado
+      summary: Listar fichajes del usuario autenticado (con filtro de fechas y paginación)
+      parameters:
+        - name: startDate
+          in: query
+          required: false
+          description: "Devuelve sólo entradas cuyo startDate sea >= este valor (ISO 8601, e.g. 2026-06-01T00:00:00Z)"
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          required: false
+          description: "Devuelve sólo entradas cuyo startDate sea <= este valor (ISO 8601, e.g. 2026-06-30T23:59:59Z)"
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          required: false
+          description: Número de página (por defecto 1)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: itemsPerPage
+          in: query
+          required: false
+          description: Elementos por página (por defecto 20, máximo 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         "200":
-          description: Lista de fichajes
+          description: Colección paginada de fichajes
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WorkEntry'
+                $ref: '#/components/schemas/WorkEntryCollection'
+        "400":
+          description: Formato de fecha inválido
         "401":
           description: No autorizado
     post:
       tags: [WorkEntries]
-      summary: Crear fichaje (clock-in)
+      summary: Crear fichaje manualmente
       requestBody:
         required: true
         content:
@@ -328,8 +517,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkEntry'
-        "400":
-          description: Datos inválidos
+        "401":
+          description: No autorizado
+        "422":
+          description: El fichaje se solapa con uno existente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlapError'
+
+  /work-entries/clock-in:
+    post:
+      tags: [WorkEntries]
+      summary: Iniciar fichaje (clock-in)
+      description: Crea una nueva entrada con `startDate = now()` y `endDate = null`.
+      responses:
+        "201":
+          description: Fichaje de entrada creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkEntry'
         "401":
           description: No autorizado
 
@@ -353,11 +561,13 @@ paths:
                 $ref: '#/components/schemas/WorkEntry'
         "401":
           description: No autorizado
+        "403":
+          description: Prohibido — el fichaje pertenece a otro usuario
         "404":
           description: Fichaje no encontrado
     put:
       tags: [WorkEntries]
-      summary: Actualizar fichaje (p.ej. registrar clock-out)
+      summary: Reemplazar fichaje completo
       requestBody:
         required: true
         content:
@@ -371,12 +581,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkEntry'
-        "400":
-          description: Datos inválidos
         "401":
           description: No autorizado
+        "403":
+          description: Prohibido — el fichaje pertenece a otro usuario
         "404":
           description: Fichaje no encontrado
+        "422":
+          description: Las nuevas fechas se solapan con otro fichaje existente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlapError'
+    patch:
+      tags: [WorkEntries]
+      summary: Actualizar parcialmente un fichaje
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: '#/components/schemas/WorkEntryUpdate'
+      responses:
+        "200":
+          description: Fichaje actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkEntry'
+        "401":
+          description: No autorizado
+        "403":
+          description: Prohibido — el fichaje pertenece a otro usuario
+        "404":
+          description: Fichaje no encontrado
+        "422":
+          description: Las nuevas fechas se solapan con otro fichaje existente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlapError'
     delete:
       tags: [WorkEntries]
       summary: Eliminar fichaje (soft delete)
@@ -385,5 +629,39 @@ paths:
           description: Fichaje eliminado (soft delete)
         "401":
           description: No autorizado
+        "403":
+          description: Prohibido — el fichaje pertenece a otro usuario
         "404":
           description: Fichaje no encontrado
+
+  /work-entries/{id}/clock-out:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [WorkEntries]
+      summary: Registrar salida (clock-out)
+      description: Establece `endDate = now()` en el fichaje indicado.
+      responses:
+        "200":
+          description: Fichaje actualizado con hora de salida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkEntry'
+        "401":
+          description: No autorizado
+        "403":
+          description: Prohibido — el fichaje pertenece a otro usuario
+        "404":
+          description: Fichaje no encontrado
+        "422":
+          description: El fichaje ya tiene registrada una hora de salida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

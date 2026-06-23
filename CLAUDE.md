@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - All entities use **soft deletes** (`deletedAt` field with `softDelete()`/`restore()` methods). Never hard-delete records.
 - IDs are **UUID v7** (`Symfony\Component\Uid\Uuid`) stored as `BINARY(16)`. Use `UuidGenerator` and `UuidType`.
 - Whenever an entity changes, create a migration (`make:migration`) and commit it with the code.
-- Keep `README.md`, `CHANGELOG.md`, and `swagger.yaml` updated in English with every change.
+- Keep `README.md`, `CHANGELOG.md`, and `swagger.yaml` updated in English with every change. In `CHANGELOG.md`, always use a specific version number (e.g. `## [1.1.0]`) — never use `## [Unreleased]`.
 - Never run `git commit` or `git push` without prior confirmation from the user.
 
 # Running the App

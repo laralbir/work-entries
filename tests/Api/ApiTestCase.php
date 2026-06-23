@@ -26,6 +26,7 @@ abstract class ApiTestCase extends BaseApiTestCase
         $connection->executeStatement('SET FOREIGN_KEY_CHECKS=0');
         $connection->executeStatement('TRUNCATE TABLE work_entries');
         $connection->executeStatement('TRUNCATE TABLE users');
+        $connection->executeStatement('TRUNCATE TABLE revoked_tokens');
         $connection->executeStatement('TRUNCATE TABLE doctrine_migration_versions');
         $connection->executeStatement('SET FOREIGN_KEY_CHECKS=1');
     }

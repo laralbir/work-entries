@@ -94,6 +94,84 @@ class UserTest extends ApiTestCase
         $this->assertCount(1, $data['member']);
     }
 
+    public function testGetUserCollectionFilterByName(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+        $this->createUser('bob@example.com', 'password123', 'Bob');
+        $token = $this->getToken('alice@example.com', 'password123');
+
+        $data = static::createClient()->request('GET', '/api/users?name=ali', $this->authHeaders($token))->toArray();
+
+        $this->assertCount(1, $data['member']);
+        $this->assertSame('Alice', $data['member'][0]['name']);
+    }
+
+    public function testGetUserCollectionFilterByNameCaseInsensitive(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+        $this->createUser('bob@example.com', 'password123', 'Bob');
+        $token = $this->getToken('alice@example.com', 'password123');
+
+        $data = static::createClient()->request('GET', '/api/users?name=ALI', $this->authHeaders($token))->toArray();
+
+        $this->assertCount(1, $data['member']);
+        $this->assertSame('Alice', $data['member'][0]['name']);
+    }
+
+    public function testGetUserCollectionFilterByEmail(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+        $this->createUser('bob@example.com', 'password123', 'Bob');
+        $token = $this->getToken('alice@example.com', 'password123');
+
+        $data = static::createClient()->request('GET', '/api/users?email=bob', $this->authHeaders($token))->toArray();
+
+        $this->assertCount(1, $data['member']);
+        $this->assertSame('bob@example.com', $data['member'][0]['email']);
+    }
+
+    public function testGetUserCollectionFilterByNameAndEmail(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+        $this->createUser('alice2@other.com', 'password123', 'Alice2');
+        $this->createUser('bob@example.com', 'password123', 'Bob');
+        $token = $this->getToken('alice@example.com', 'password123');
+
+        $data = static::createClient()->request('GET', '/api/users?name=alice&email=example', $this->authHeaders($token))->toArray();
+
+        $this->assertCount(1, $data['member']);
+        $this->assertSame('alice@example.com', $data['member'][0]['email']);
+    }
+
+    public function testGetUserCollectionFilterNoMatch(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+        $token = $this->getToken('alice@example.com', 'password123');
+
+        $data = static::createClient()->request('GET', '/api/users?name=zzz', $this->authHeaders($token))->toArray();
+
+        $this->assertCount(0, $data['member']);
+    }
+
+    public function testGetUserCollectionPagination(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+        $this->createUser('bob@example.com', 'password123', 'Bob');
+        $this->createUser('carol@example.com', 'password123', 'Carol');
+        $this->createUser('dave@example.com', 'password123', 'Dave');
+        $this->createUser('eve@example.com', 'password123', 'Eve');
+        $token = $this->getToken('alice@example.com', 'password123');
+
+        $data = static::createClient()->request(
+            'GET',
+            '/api/users?page=2&itemsPerPage=2',
+            $this->authHeaders($token),
+        )->toArray();
+
+        $this->assertSame(5, $data['totalItems']);
+        $this->assertCount(2, $data['member']);
+    }
+
     // -------------------------------------------------------------------------
     // GET item
     // -------------------------------------------------------------------------

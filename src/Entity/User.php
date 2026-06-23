@@ -33,6 +33,10 @@ use Symfony\Component\Validator\Constraints as Assert;
     operations: [
         new GetCollection(
             provider: UserCollectionProvider::class,
+            paginationEnabled: true,
+            paginationItemsPerPage: 20,
+            paginationClientItemsPerPage: true,
+            paginationMaximumItemsPerPage: 100,
         ),
         new Get(
             provider: UserItemProvider::class,

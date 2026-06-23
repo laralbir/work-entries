@@ -94,24 +94,51 @@ curl http://localhost:8080/api/... \
   -H "Authorization: Bearer <your-jwt-token>"
 ```
 
+### Revoke a token (logout)
+
+```bash
+curl -X POST http://localhost:8080/api/auth/revoke \
+  -H "Authorization: Bearer <your-jwt-token>"
+```
+
+Returns `204 No Content`. The token is added to a server-side denylist keyed by its unique `jti` claim. Any subsequent request with that token returns `401`, even if it has not yet expired. Each JWT gets a unique `jti` (UUID v7) injected at creation time, so revoking one session does not affect other active sessions for the same user.
+
 ## Project Structure
 
 ```
 work-entries/
 ├── config/
-│   ├── jwt/                    # RSA keys for JWT (not in repo)
+│   ├── jwt/                         # RSA keys for JWT (not in repo)
 │   └── packages/
-│       ├── api_platform.yaml   # API Platform configuration
-│       ├── doctrine.yaml       # MySQL 8.0 + Doctrine ORM
+│       ├── api_platform.yaml
+│       ├── doctrine.yaml
 │       ├── lexik_jwt_authentication.yaml
-│       └── security.yaml       # JWT firewalls
+│       └── security.yaml
 ├── docker/
-│   └── nginx/default.conf      # Nginx configuration
-├── migrations/                 # Doctrine migrations
+│   └── nginx/default.conf
+├── migrations/                      # Doctrine migrations
 ├── src/
-│   ├── Entity/                 # Doctrine entities (DDD)
-│   ├── Repository/
-│   └── Kernel.php
+│   ├── ApiInput/                    # Request DTOs (e.g. WorkEntryInput)
+│   ├── ApiResource/                 # OpenAPI customizations (OpenApiFactory)
+│   ├── Application/                 # CQRS — one Command/Handler or Query/Handler per use case
+│   │   ├── Auth/Command/
+│   │   ├── User/Command/ & Query/
+│   │   └── WorkEntry/Command/ & Query/
+│   ├── Controller/Auth/             # Non-API-Platform controllers (e.g. RevokeTokenController)
+│   ├── Domain/                      # Repository interfaces & domain events (zero infrastructure deps)
+│   │   ├── Auth/Repository/
+│   │   ├── User/Repository/ & Event/
+│   │   └── WorkEntry/Repository/ & Event/
+│   ├── Entity/                      # Doctrine entities (carry #[ApiResource] and serialization groups)
+│   ├── EventListener/               # Symfony kernel listeners (e.g. ApiExceptionListener)
+│   ├── Infrastructure/
+│   │   ├── Event/                   # Domain event listeners (audit logging)
+│   │   ├── Persistence/             # Doctrine repository implementations
+│   │   └── Security/                # JWT event listeners (JwtCreatedListener, JwtDecodedListener)
+│   └── State/                       # API Platform Providers & Processors
+│       ├── User/
+│       └── WorkEntry/
+├── tests/Api/
 ├── docker-compose.yml
 ├── Dockerfile
 └── docker-entrypoint.sh
@@ -150,6 +177,28 @@ work-entries/
 - `IDX_F8330BE7A76ED395 (user_id)` — FK lookup, managed automatically by Doctrine
 - `IDX_WE_USER_START_DATE (user_id, start_date)` — composite index that covers the primary query pattern: listing or filtering a user's entries by date range without a full table scan
 
+### `revoked_tokens`
+
+| Column | Type | Constraints |
+|---|---|---|
+| `jti` | `VARCHAR(36)` | PK (JWT ID, UUID v7) |
+| `expires_at` | `DATETIME` | NOT NULL |
+| `revoked_at` | `DATETIME` | NOT NULL |
+
+**Indexes:** `IDX_RT_EXPIRES_AT (expires_at)` — for efficient cleanup of expired entries.
+
+### Overlap validation
+
+`POST`, `PUT`, and `PATCH /api/work-entries` reject entries that overlap with an existing (non-deleted) entry for the same user. Two intervals `[A, B]` and `[C, D]` overlap when `A < D` and `C < B` (a `null` end date means the interval is open-ended / still running). Returns `422 Unprocessable Entity` with:
+
+```json
+{"status": 422, "detail": "Work entry overlaps with an existing entry."}
+```
+
+For PUT and PATCH, the entry being updated is excluded from the overlap check so that saving unchanged dates never triggers a false conflict.
+
+Entries belonging to different users are never considered for overlap.
+
 ### Index strategy
 
 Two separate indexes coexist on `work_entries.user_id` rather than a single composite one because MySQL can use a composite index prefix to satisfy a foreign key constraint, but Doctrine validates indexes by exact name — not by column prefix. Replacing the FK index with the composite one would cause `doctrine:schema:validate` to report the schema as out of sync. Keeping both gives optimal query performance while staying compatible with Doctrine's schema tooling.
@@ -168,6 +217,59 @@ UUIDs are stored as `BINARY(16)` instead of the more readable `CHAR(36)`:
 | Readability in MySQL | human-readable | requires `BIN_TO_UUID()` |
 
 For a backend API where UUIDs are never read directly from the database console, the performance gains outweigh the readability trade-off. Symfony UID generates UUID v7 values, which are time-ordered and avoid index fragmentation (a common problem with random UUID v4).
+
+## API Reference
+
+### Authentication
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/login_check` | Public | Obtain JWT token |
+| `POST` | `/api/auth/revoke` | Required | Revoke the current token (logout) |
+
+### Users
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/users` | Required | List users — optional `?name=` and `?email=` partial filters, `?page=` / `?itemsPerPage=` pagination |
+| `POST` | `/api/users` | Public | Register a new user |
+| `GET` | `/api/users/{id}` | Required | Get own profile |
+| `PATCH` | `/api/users/{id}` | Required | Partially update own profile |
+| `PUT` | `/api/users/{id}` | Required | Fully replace own profile |
+| `DELETE` | `/api/users/{id}` | Required | Soft-delete own account |
+
+### Work Entries
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/work-entries` | Required | List own entries — optional `?startDate=` / `?endDate=` filters (ISO 8601), `?page=` / `?itemsPerPage=` pagination |
+| `POST` | `/api/work-entries` | Required | Create an entry manually |
+| `POST` | `/api/work-entries/clock-in` | Required | Clock in (startDate = now, endDate = null) |
+| `GET` | `/api/work-entries/{id}` | Required | Get a single entry |
+| `PUT` | `/api/work-entries/{id}` | Required | Fully replace an entry |
+| `PATCH` | `/api/work-entries/{id}` | Required | Partially update an entry |
+| `DELETE` | `/api/work-entries/{id}` | Required | Soft-delete an entry |
+| `POST` | `/api/work-entries/{id}/clock-out` | Required | Clock out (endDate = now) |
+
+#### Pagination response format
+
+All collection endpoints return:
+
+```json
+{
+  "member": [...],
+  "totalItems": 42,
+  "view": {
+    "@id": "/api/work-entries?page=2",
+    "first": "/api/work-entries?page=1",
+    "last": "/api/work-entries?page=5",
+    "previous": "/api/work-entries?page=1",
+    "next": "/api/work-entries?page=3"
+  }
+}
+```
+
+Default page size is 20; maximum is 100.
 
 ## Architecture
 

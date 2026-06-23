@@ -13,3 +13,8 @@ controllers:
 # JWT Authentication
 api_login_check:
     path: /api/login_check
+
+api_auth_revoke:
+    path: /api/auth/revoke
+    controller: App\Controller\Auth\RevokeTokenController
+    methods: [POST]

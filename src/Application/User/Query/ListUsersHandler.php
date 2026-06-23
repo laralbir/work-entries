@@ -10,9 +10,17 @@ final class ListUsersHandler
 {
     public function __construct(private readonly UserRepositoryInterface $userRepository) {}
 
-    /** @return \App\Entity\User[] */
-    public function __invoke(ListUsersQuery $query): array
+    public function __invoke(ListUsersQuery $query): UsersPage
     {
-        return $this->userRepository->findAll();
+        $items = $this->userRepository->findAll(
+            $query->name,
+            $query->email,
+            $query->offset,
+            $query->limit,
+        );
+
+        $total = $this->userRepository->countAll($query->name, $query->email);
+
+        return new UsersPage($items, $total);
     }
 }

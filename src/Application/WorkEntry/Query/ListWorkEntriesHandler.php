@@ -10,9 +10,22 @@ final class ListWorkEntriesHandler
 {
     public function __construct(private readonly WorkEntryRepositoryInterface $workEntryRepository) {}
 
-    /** @return \App\Entity\WorkEntry[] */
-    public function __invoke(ListWorkEntriesQuery $query): array
+    public function __invoke(ListWorkEntriesQuery $query): WorkEntriesPage
     {
-        return $this->workEntryRepository->findByUser($query->user);
+        $items = $this->workEntryRepository->findByUser(
+            $query->user,
+            $query->from,
+            $query->to,
+            $query->offset,
+            $query->limit,
+        );
+
+        $total = $this->workEntryRepository->countByUser(
+            $query->user,
+            $query->from,
+            $query->to,
+        );
+
+        return new WorkEntriesPage($items, $total);
     }
 }

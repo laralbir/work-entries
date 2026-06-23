@@ -8,6 +8,7 @@ use App\Domain\WorkEntry\Event\WorkEntryCreatedEvent;
 use App\Domain\WorkEntry\Repository\WorkEntryRepositoryInterface;
 use App\Entity\WorkEntry;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 final class CreateWorkEntryHandler
 {
@@ -18,6 +19,10 @@ final class CreateWorkEntryHandler
 
     public function __invoke(CreateWorkEntryCommand $command): WorkEntry
     {
+        if ($this->workEntryRepository->findOverlapping($command->user, $command->startDate, $command->endDate) !== []) {
+            throw new UnprocessableEntityHttpException('Work entry overlaps with an existing entry.');
+        }
+
         $workEntry = new WorkEntry($command->user, $command->startDate, $command->endDate);
 
         $this->workEntryRepository->save($workEntry);

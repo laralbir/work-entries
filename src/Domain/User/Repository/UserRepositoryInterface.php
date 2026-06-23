@@ -13,8 +13,17 @@ interface UserRepositoryInterface
 
     public function findByEmail(string $email): ?User;
 
-    /** @return User[] */
-    public function findAll(): array;
+    /**
+     * @return User[] ordered by name ASC
+     */
+    public function findAll(
+        ?string $name = null,
+        ?string $email = null,
+        int $offset = 0,
+        int $limit = 20,
+    ): array;
+
+    public function countAll(?string $name = null, ?string $email = null): int;
 
     public function save(User $user): void;
 

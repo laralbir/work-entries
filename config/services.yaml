@@ -19,6 +19,9 @@ services:
     App\:
         resource: '../src/'
 
+    App\Domain\Auth\Repository\RevokedTokenRepositoryInterface:
+        class: App\Infrastructure\Persistence\Auth\DoctrineRevokedTokenRepository
+
     App\Domain\User\Repository\UserRepositoryInterface:
         class: App\Infrastructure\Persistence\User\DoctrineUserRepository
 

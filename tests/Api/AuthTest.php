@@ -42,4 +42,69 @@ class AuthTest extends ApiTestCase
 
         $this->assertResponseStatusCodeSame(401);
     }
+
+    // -------------------------------------------------------------------------
+    // POST /api/auth/revoke
+    // -------------------------------------------------------------------------
+
+    public function testRevokeTokenRequiresAuth(): void
+    {
+        static::createClient()->request('POST', '/api/auth/revoke');
+        $this->assertResponseStatusCodeSame(401);
+    }
+
+    public function testRevokeTokenReturns204(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+        $token = $this->getToken('alice@example.com', 'password123');
+
+        static::createClient()->request('POST', '/api/auth/revoke', $this->authHeaders($token));
+
+        $this->assertResponseStatusCodeSame(204);
+    }
+
+    public function testRevokedTokenIsRejectedOnSubsequentRequests(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+        $token = $this->getToken('alice@example.com', 'password123');
+
+        static::createClient()->request('POST', '/api/auth/revoke', $this->authHeaders($token));
+        $this->assertResponseStatusCodeSame(204);
+
+        static::createClient()->request('GET', '/api/users', $this->authHeaders($token));
+        $this->assertResponseStatusCodeSame(401);
+    }
+
+    public function testNewTokenWorksAfterRevokingOld(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+        $token = $this->getToken('alice@example.com', 'password123');
+
+        static::createClient()->request('POST', '/api/auth/revoke', $this->authHeaders($token));
+        $this->assertResponseStatusCodeSame(204);
+
+        $newToken = $this->getToken('alice@example.com', 'password123');
+        static::createClient()->request('GET', '/api/users', $this->authHeaders($newToken));
+        $this->assertResponseIsSuccessful();
+    }
+
+    public function testMultipleTokensAreRevokedIndependently(): void
+    {
+        $this->createUser('alice@example.com', 'password123', 'Alice');
+
+        $token1 = $this->getToken('alice@example.com', 'password123');
+        $token2 = $this->getToken('alice@example.com', 'password123');
+
+        // Revoke only the first token
+        static::createClient()->request('POST', '/api/auth/revoke', $this->authHeaders($token1));
+        $this->assertResponseStatusCodeSame(204);
+
+        // First token rejected
+        static::createClient()->request('GET', '/api/users', $this->authHeaders($token1));
+        $this->assertResponseStatusCodeSame(401);
+
+        // Second token still valid (has a different jti)
+        static::createClient()->request('GET', '/api/users', $this->authHeaders($token2));
+        $this->assertResponseIsSuccessful();
+    }
 }

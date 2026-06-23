@@ -5,7 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ---
 
-## [Unreleased]
+## [1.1.0] - 2026-06-23
+
+### Added
+- **`POST /api/auth/revoke` — JWT token revocation**: adds the caller's token to a `revoked_tokens` table (keyed by the token's unique `jti` claim). Subsequent requests with that token return `401`, even before expiry. Each token gets a unique `jti` (UUID v7) injected at creation time. Revoking one token does not affect other active sessions for the same user.
+- `RevokedToken` entity + `revoked_tokens` migration; `RevokedTokenRepositoryInterface` port + `DoctrineRevokedTokenRepository` adapter.
+- `JwtCreatedListener` — injects `jti` into every new JWT payload.
+- `JwtDecodedListener` — rejects tokens whose `jti` is in the revoked list.
+- **Name and email filters on `GET /api/users`**: optional `?name=` and `?email=` query params perform case-insensitive partial matching (SQL `LIKE`). Both params are combinable.
+- **Pagination on `GET /api/users`**: `?page=` (default 1) and `?itemsPerPage=` (default 20, max 100). Response includes `totalItems`, `member`, and `view` (prev/next links). Same behaviour as `GET /api/work-entries`.
+- **Date filter on `GET /api/work-entries`**: optional `?startDate=` and `?endDate=` query params filter entries whose `startDate` falls within the given range (ISO 8601). Returns `400` for unparseable dates.
+- **Pagination on `GET /api/work-entries`**: `?page=` (default 1) and `?itemsPerPage=` (default 20, max 100). Response now includes `totalItems`, `member`, and `view` (prev/next links).
+- **Overlap validation on `POST /api/work-entries`**: returns `422 Unprocessable Entity` with `{"status":422,"detail":"Work entry overlaps with an existing entry."}` if the requested `[startDate, endDate]` interval intersects any existing (non-deleted) entry for the same user. An open-ended entry (`endDate: null`) overlaps any existing open or overlapping entry. Entries belonging to different users are never considered.
+- **Overlap validation on `PUT /api/work-entries/{id}` and `PATCH /api/work-entries/{id}`**: same rule as POST, but the entry being updated is excluded from the check via `$excludeId` (so a PUT/PATCH with unchanged dates does not self-conflict).
+- `WorkEntryRepositoryInterface::findOverlapping(User, startDate, endDate, ?excludeId)` — new port method implemented in `DoctrineWorkEntryRepository` via DQL JOIN on `u.id` with explicit `UuidType` binding.
+- Tests: 9 overlap + 7 no-overlap cases for POST; 9 overlap + 7 no-overlap cases for PUT (including the self-exclusion case).
+- `swagger.yaml`: `422` response on `POST`, `PUT`, and `PATCH /work-entries`; PATCH endpoint documented.
 
 ---
 

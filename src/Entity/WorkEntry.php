@@ -31,6 +31,10 @@ use Symfony\Component\Validator\Constraints as Assert;
     operations: [
         new GetCollection(
             provider: WorkEntryCollectionProvider::class,
+            paginationEnabled: true,
+            paginationItemsPerPage: 20,
+            paginationClientItemsPerPage: true,
+            paginationMaximumItemsPerPage: 100,
         ),
         new Get(
             security: 'object.getUser() === user',
@@ -42,6 +46,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         ),
         new Put(
             security: 'object.getUser() === user',
+            input: WorkEntryInput::class,
             provider: WorkEntryItemProvider::class,
             processor: WorkEntryUpdateProcessor::class,
         ),
