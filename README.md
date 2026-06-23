@@ -2,6 +2,23 @@
 
 REST API for employee time-tracking, built with Symfony 7.4, API Platform, and JWT authentication.
 
+## Table of Contents
+
+- [Tech Stack](#tech-stack)
+- [Requirements](#requirements)
+- [Installation & Setup](#installation--setup)
+- [JWT Authentication](#jwt-authentication)
+- [API Reference](#api-reference)
+- [Project Structure](#project-structure)
+- [Database Schema](#database-schema)
+- [Architecture](#architecture)
+  - [Hexagonal Architecture](#hexagonal-architecture)
+  - [Event-Driven System](#event-driven-system)
+  - [CQRS](#cqrs)
+  - [Domain Driven Design](#domain-driven-design)
+- [Useful Commands](#useful-commands)
+- [Changelog](#changelog)
+
 ## Tech Stack
 
 | Technology | Version | Notes |
@@ -104,6 +121,59 @@ curl -X POST http://localhost:8080/api/auth/revoke \
 ```
 
 Returns `204 No Content`. The token is added to a server-side denylist keyed by its unique `jti` claim. Any subsequent request with that token returns `401`, even if it has not yet expired. Each JWT gets a unique `jti` (UUID v7) injected at creation time, so revoking one session does not affect other active sessions for the same user.
+
+## API Reference
+
+### Authentication
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/login_check` | Public | Obtain JWT token |
+| `POST` | `/api/auth/revoke` | Required | Revoke the current token (logout) |
+
+### Users
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/users` | Required | List users — optional `?name=` and `?email=` partial filters, `?page=` / `?itemsPerPage=` pagination |
+| `POST` | `/api/users` | Public | Register a new user |
+| `GET` | `/api/users/{id}` | Required | Get own profile |
+| `PATCH` | `/api/users/{id}` | Required | Partially update own profile |
+| `PUT` | `/api/users/{id}` | Required | Fully replace own profile |
+| `DELETE` | `/api/users/{id}` | Required | Soft-delete own account |
+
+### Work Entries
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/work-entries` | Required | List own entries — optional `?startDate=` / `?endDate=` filters (ISO 8601), `?page=` / `?itemsPerPage=` pagination |
+| `POST` | `/api/work-entries` | Required | Create an entry manually |
+| `POST` | `/api/work-entries/clock-in` | Required | Clock in (startDate = now, endDate = null) |
+| `GET` | `/api/work-entries/{id}` | Required | Get a single entry |
+| `PUT` | `/api/work-entries/{id}` | Required | Fully replace an entry |
+| `PATCH` | `/api/work-entries/{id}` | Required | Partially update an entry |
+| `DELETE` | `/api/work-entries/{id}` | Required | Soft-delete an entry |
+| `POST` | `/api/work-entries/{id}/clock-out` | Required | Clock out (endDate = now) |
+
+#### Pagination response format
+
+All collection endpoints return:
+
+```json
+{
+  "member": [...],
+  "totalItems": 42,
+  "view": {
+    "@id": "/api/work-entries?page=2",
+    "first": "/api/work-entries?page=1",
+    "last": "/api/work-entries?page=5",
+    "previous": "/api/work-entries?page=1",
+    "next": "/api/work-entries?page=3"
+  }
+}
+```
+
+Default page size is 20; maximum is 100.
 
 ## Project Structure
 
@@ -221,59 +291,6 @@ UUIDs are stored as `BINARY(16)` instead of the more readable `CHAR(36)`:
 
 For a backend API where UUIDs are never read directly from the database console, the performance gains outweigh the readability trade-off. Symfony UID generates UUID v7 values, which are time-ordered and avoid index fragmentation (a common problem with random UUID v4).
 
-## API Reference
-
-### Authentication
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/login_check` | Public | Obtain JWT token |
-| `POST` | `/api/auth/revoke` | Required | Revoke the current token (logout) |
-
-### Users
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/users` | Required | List users — optional `?name=` and `?email=` partial filters, `?page=` / `?itemsPerPage=` pagination |
-| `POST` | `/api/users` | Public | Register a new user |
-| `GET` | `/api/users/{id}` | Required | Get own profile |
-| `PATCH` | `/api/users/{id}` | Required | Partially update own profile |
-| `PUT` | `/api/users/{id}` | Required | Fully replace own profile |
-| `DELETE` | `/api/users/{id}` | Required | Soft-delete own account |
-
-### Work Entries
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/work-entries` | Required | List own entries — optional `?startDate=` / `?endDate=` filters (ISO 8601), `?page=` / `?itemsPerPage=` pagination |
-| `POST` | `/api/work-entries` | Required | Create an entry manually |
-| `POST` | `/api/work-entries/clock-in` | Required | Clock in (startDate = now, endDate = null) |
-| `GET` | `/api/work-entries/{id}` | Required | Get a single entry |
-| `PUT` | `/api/work-entries/{id}` | Required | Fully replace an entry |
-| `PATCH` | `/api/work-entries/{id}` | Required | Partially update an entry |
-| `DELETE` | `/api/work-entries/{id}` | Required | Soft-delete an entry |
-| `POST` | `/api/work-entries/{id}/clock-out` | Required | Clock out (endDate = now) |
-
-#### Pagination response format
-
-All collection endpoints return:
-
-```json
-{
-  "member": [...],
-  "totalItems": 42,
-  "view": {
-    "@id": "/api/work-entries?page=2",
-    "first": "/api/work-entries?page=1",
-    "last": "/api/work-entries?page=5",
-    "previous": "/api/work-entries?page=1",
-    "next": "/api/work-entries?page=3"
-  }
-}
-```
-
-Default page size is 20; maximum is 100.
-
 ## Architecture
 
 This project follows:
@@ -381,7 +398,7 @@ Three lines. Replacing the database requires only changing these lines and writi
 - **`EventDispatcherInterface` is Symfony's**: in strict hexagonal, the core would define its own `EventPublisherInterface` port. Using Symfony's interface directly is a common and accepted trade-off in Symfony projects.
 - **`src/State/` is not a true port**: it is an adapter namespace, but it couples to API Platform's `ProviderInterface` / `ProcessorInterface` directly rather than to a project-defined port. This is fine while API Platform is the only HTTP adapter.
 
-### Event-Driven system
+### Event-Driven System
 
 Every write operation that changes meaningful state dispatches a domain event after the data is persisted. The flow is:
 
