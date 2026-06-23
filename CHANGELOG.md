@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ---
 
+## [1.1.2] - 2026-06-23
+
+### Documentation
+- `README.md` sections reordered: usage docs (JWT Authentication, API Reference) now appear before implementation details (Project Structure, Database Schema, Architecture).
+- Table of contents added with anchor links to all sections and architecture subsections.
+- New architecture sections: Hexagonal Architecture (ports/adapters diagram, full adapter inventory, dependency rule, port bindings), Event-Driven system (dispatch flow, event table, log format, extension guide), CQRS (command/query structure, code examples, design decisions), and Domain Driven Design (bounded contexts, ubiquitous language, entity behaviour, pragmatic simplifications).
+- Tech Stack table extended with a Notes column; Symfony 7.4 LTS support window documented.
+- `Project Structure` corrected: `Controller/` shown as parent with `Auth/` as child; directory descriptions improved.
+
+---
+
 ## [1.1.1] - 2026-06-23
 
 ### Removed
