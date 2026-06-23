@@ -4,14 +4,16 @@ REST API for employee time-tracking, built with Symfony 7.4, API Platform, and J
 
 ## Tech Stack
 
-| Technology | Version |
-|---|---|
-| PHP | 8.2 |
-| Symfony | 7.4 |
-| API Platform | 4.x |
-| MySQL | 8.0 |
-| Nginx | Alpine |
-| Docker | - |
+| Technology | Version | Notes |
+|---|---|---|
+| PHP | 8.2 | |
+| Symfony | 7.4 | LTS — security fixes until November 2027, bug fixes until November 2026 |
+| API Platform | 4.x | |
+| MySQL | 8.0 | |
+| Nginx | Alpine | |
+| Docker | - | |
+
+Symfony 7.4 is a **Long-Term Support** release. Compared to non-LTS minor versions (7.0–7.3), it receives bug fixes for 3 years and security fixes for 4 years, making it the right choice for a production application that needs a stable, well-documented foundation without frequent forced upgrades.
 
 ## Requirements
 
@@ -300,7 +302,7 @@ The core idea is that the **Application Core** (domain model + use-case handlers
                          │  drives
 ┌────────────────────────▼────────────────────────────────┐
 │                   DRIVEN SIDE                           │
-│  Doctrine repositories, event listeners, JWT adapters  │
+│  Doctrine repositories, event listeners, JWT adapters   │
 │  (src/Infrastructure/)                                  │
 └─────────────────────────────────────────────────────────┘
 ```
