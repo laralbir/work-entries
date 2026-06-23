@@ -10,6 +10,11 @@
 controllers:
     resource: routing.controllers
 
+home:
+    path: /
+    controller: App\Controller\HomeController
+    methods: [GET]
+
 # JWT Authentication
 api_login_check:
     path: /api/login_check

@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ---
 
+## [1.1.3] - 2026-06-23
+
+### Added
+- `GET /` — root endpoint returns `{"name": "Work Entries API", "version": "1.1.3"}` replacing the default Symfony HTML welcome page.
+- `swagger.yaml` updated to version `1.1.3`; root endpoint documented.
+
+---
+
 ## [1.1.2] - 2026-06-23
 
 ### Documentation
