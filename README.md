@@ -280,6 +280,63 @@ This project follows:
 - **CQRS** — Commands (writes) separated from Queries (reads)
 - **Event Driven** — full audit trail of all changes via domain events
 
+### Event-Driven system
+
+Every write operation that changes meaningful state dispatches a domain event after the data is persisted. The flow is:
+
+```
+Command Handler
+  └─ persists entity
+  └─ $dispatcher->dispatch(new WorkEntryCreatedEvent($entry))
+       └─ WorkEntryEventListener::onCreated()
+            └─ $logger->info('WorkEntry created', ['workEntryId' => …, 'userId' => …])
+```
+
+**Domain events** (`src/Domain/*/Event/`) are plain PHP objects with no framework dependencies. They carry the entity that changed and nothing else.
+
+**Listeners** (`src/Infrastructure/Event/`) are registered automatically via `#[AsEventListener]`. They are the only code that needs to change when you want to react differently to an event — Command Handlers never need to know what happens downstream.
+
+#### Events currently dispatched
+
+| Event | Dispatched from | Listener |
+|---|---|---|
+| `WorkEntryCreatedEvent` | `CreateWorkEntryHandler`, `ClockInHandler` | `WorkEntryEventListener::onCreated` |
+| `WorkEntryClockedOutEvent` | `ClockOutHandler` | `WorkEntryEventListener::onClockedOut` |
+| `WorkEntryDeletedEvent` | `DeleteWorkEntryHandler` | `WorkEntryEventListener::onDeleted` |
+| `UserCreatedEvent` | `CreateUserHandler` | _(no listener yet — extension point)_ |
+
+#### Where to see the logs
+
+The application uses Symfony's built-in PSR-3 logger, which writes to **stderr**. In the Docker setup that output is captured by PHP-FPM and forwarded to the container log. To read it:
+
+```bash
+docker logs work_entries_app
+```
+
+Each event produces one `[info]` line with structured context:
+
+```
+NOTICE: PHP message: [info] WorkEntry created {"workEntryId":"018f…","userId":"018e…"}
+NOTICE: PHP message: [info] WorkEntry clocked out {"workEntryId":"018f…","userId":"018e…"}
+NOTICE: PHP message: [info] WorkEntry deleted {"workEntryId":"018f…","userId":"018e…"}
+```
+
+#### Extending the system
+
+To **add a reaction to an existing event** (e.g. send an email when a work entry is created), create a new listener class and annotate it:
+
+```php
+#[AsEventListener(event: WorkEntryCreatedEvent::class)]
+final class NotifyOnWorkEntryCreated
+{
+    public function __invoke(WorkEntryCreatedEvent $event): void { … }
+}
+```
+
+To **persist a structured audit trail** instead of plain log lines, create a `WorkEntryAuditLog` entity and write to it from the listener. The `IDX_RT_EXPIRES_AT` pattern in `revoked_tokens` is a reference for how to add a time-indexed audit table.
+
+To **react to `UserCreatedEvent`**, create a `UserEventListener` in `src/Infrastructure/Event/` — the event is already dispatched, it just has no subscriber yet.
+
 ## Useful Commands
 
 All commands run inside the application container (`work_entries_app`):
