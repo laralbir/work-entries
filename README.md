@@ -118,24 +118,25 @@ work-entries/
 │   └── nginx/default.conf
 ├── migrations/                      # Doctrine migrations
 ├── src/
-│   ├── ApiInput/                    # Request DTOs (e.g. WorkEntryInput)
-│   ├── ApiResource/                 # OpenAPI customizations (OpenApiFactory)
-│   ├── Application/                 # CQRS — one Command/Handler or Query/Handler per use case
+│   ├── ApiInput/                    # Request DTOs (e.g. WorkEntryInput for POST/PUT work-entries)
+│   ├── ApiResource/                 # OpenAPI customizations (OpenApiFactory decorator)
+│   ├── Application/                 # CQRS — one Command+Handler or Query+Handler per use case; no framework deps
 │   │   ├── Auth/Command/
 │   │   ├── User/Command/ & Query/
 │   │   └── WorkEntry/Command/ & Query/
-│   ├── Controller/Auth/             # Non-API-Platform controllers (e.g. RevokeTokenController)
-│   ├── Domain/                      # Repository interfaces & domain events (zero infrastructure deps)
+│   ├── Controller/                  # Non-API-Platform controllers
+│   │   └── Auth/                    # (e.g. RevokeTokenController for POST /api/auth/revoke)
+│   ├── Domain/                      # Ports: repository interfaces and domain events; zero infrastructure deps
 │   │   ├── Auth/Repository/
 │   │   ├── User/Repository/ & Event/
 │   │   └── WorkEntry/Repository/ & Event/
-│   ├── Entity/                      # Doctrine entities (carry #[ApiResource] and serialization groups)
-│   ├── EventListener/               # Symfony kernel listeners (e.g. ApiExceptionListener)
-│   ├── Infrastructure/
-│   │   ├── Event/                   # Domain event listeners (audit logging)
-│   │   ├── Persistence/             # Doctrine repository implementations
-│   │   └── Security/                # JWT event listeners (JwtCreatedListener, JwtDecodedListener)
-│   └── State/                       # API Platform Providers & Processors
+│   ├── Entity/                      # Doctrine ORM entities; carry #[ApiResource] metadata and serialization groups
+│   ├── EventListener/               # Symfony kernel event listeners (e.g. ApiExceptionListener → JSON error responses)
+│   ├── Infrastructure/              # Adapters: framework and persistence implementations
+│   │   ├── Event/                   # Domain event subscribers (WorkEntryEventListener — audit logging)
+│   │   ├── Persistence/             # Doctrine repository implementations (Auth/, User/, WorkEntry/)
+│   │   └── Security/                # JWT lifecycle listeners (JwtCreatedListener injects jti; JwtDecodedListener checks denylist)
+│   └── State/                       # API Platform Providers (reads) and Processors (writes)
 │       ├── User/
 │       └── WorkEntry/
 ├── tests/Api/
