@@ -337,6 +337,107 @@ To **persist a structured audit trail** instead of plain log lines, create a `Wo
 
 To **react to `UserCreatedEvent`**, create a `UserEventListener` in `src/Infrastructure/Event/` — the event is already dispatched, it just has no subscriber yet.
 
+### CQRS
+
+Every operation in the Application layer is either a **Command** (changes state, has side effects) or a **Query** (reads data, no side effects). They never mix.
+
+#### Structure
+
+Each use case is two files: a message object and its handler.
+
+```
+src/Application/
+├── WorkEntry/
+│   ├── Command/
+│   │   ├── CreateWorkEntryCommand.php   ← immutable value object (what to do + data)
+│   │   ├── CreateWorkEntryHandler.php   ← validates, persists, dispatches event
+│   │   ├── UpdateWorkEntryCommand.php
+│   │   ├── UpdateWorkEntryHandler.php
+│   │   ├── ClockInCommand.php / ClockInHandler.php
+│   │   ├── ClockOutCommand.php / ClockOutHandler.php
+│   │   └── DeleteWorkEntryCommand.php / DeleteWorkEntryHandler.php
+│   └── Query/
+│       ├── GetWorkEntryQuery.php        ← immutable value object (what to fetch)
+│       ├── GetWorkEntryHandler.php      ← reads from repository, returns entity
+│       ├── ListWorkEntriesQuery.php     ← carries filters + pagination params
+│       ├── ListWorkEntriesHandler.php   ← returns WorkEntriesPage (items + totalItems)
+│       └── WorkEntriesPage.php          ← read-side response wrapper
+└── User/ & Auth/  (same pattern)
+```
+
+#### How Commands work
+
+A Command is a `final readonly class` with public constructor properties — an immutable description of the intent:
+
+```php
+final readonly class CreateWorkEntryCommand
+{
+    public function __construct(
+        public User $user,
+        public \DateTimeImmutable $startDate,
+        public ?\DateTimeImmutable $endDate = null,
+    ) {}
+}
+```
+
+Its Handler is an invokable class that does exactly one thing — execute that intent:
+
+```php
+// State Processor (API layer) builds the command and calls the handler:
+($this->handler)(new CreateWorkEntryCommand(user: $user, startDate: $data->startDate, ...));
+
+// Handler: validate → persist → dispatch event → return entity
+public function __invoke(CreateWorkEntryCommand $command): WorkEntry
+{
+    // validate (overlap check)
+    // persist via repository
+    // dispatch WorkEntryCreatedEvent
+    // return the new entity
+}
+```
+
+#### How Queries work
+
+A Query carries only read parameters. Its Handler calls the repository and returns data — no persistence, no events:
+
+```php
+// State Provider (API layer) builds the query and calls the handler:
+($this->handler)(new ListWorkEntriesQuery(user: $user, from: $from, to: $to, offset: 0, limit: 20));
+
+// Handler: read → return
+public function __invoke(ListWorkEntriesQuery $query): WorkEntriesPage
+{
+    $items = $this->repository->findByUser(…);
+    $total = $this->repository->countByUser(…);
+    return new WorkEntriesPage($items, $total);
+}
+```
+
+#### How the API layer connects to CQRS
+
+API Platform's **State Processors** (write side) and **State Providers** (read side) are the only layer aware of both HTTP and the Application layer. They translate one into the other:
+
+```
+HTTP POST /api/work-entries
+  → WorkEntryCreateProcessor   (State/WorkEntry/)
+      → new CreateWorkEntryCommand(…)
+          → CreateWorkEntryHandler   (Application/WorkEntry/Command/)
+              → WorkEntryRepositoryInterface   (Domain port)
+                  → DoctrineWorkEntryRepository   (Infrastructure adapter)
+
+HTTP GET /api/work-entries
+  → WorkEntryCollectionProvider   (State/WorkEntry/)
+      → new ListWorkEntriesQuery(…)
+          → ListWorkEntriesHandler   (Application/WorkEntry/Query/)
+              → WorkEntryRepositoryInterface   (Domain port)
+```
+
+#### Design decisions
+
+- **No message bus**: Handlers are invoked directly with `($this->handler)(new Command(…))`. Symfony Messenger is not used — synchronous dispatch is sufficient at this scale and keeps the stack trace simple.
+- **Commands return the entity**: Pure CQRS Commands return `void`. Here they return the persisted entity because API Platform needs it to serialize the HTTP response. This is a deliberate pragmatic trade-off.
+- **Queries return entities, not DTOs**: Entities carry serialization groups (`#[Groups]`) already, so a separate read model would be redundant at this scale.
+
 ## Useful Commands
 
 All commands run inside the application container (`work_entries_app`):
