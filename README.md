@@ -84,6 +84,40 @@ The entrypoint automatically handles:
 
 ## JWT Authentication
 
+### How JWT works
+
+JWT (JSON Web Token) is a **stateless** token format — the server stores nothing. All the information needed to authenticate a request is encoded inside the token itself.
+
+A JWT has three Base64URL-encoded parts separated by dots:
+
+```
+header.payload.signature
+```
+
+- **Header** — signing algorithm (`RS256` in this project)
+- **Payload** — claims: `sub` (user ID), `exp` (expiry), `iat` (issued at), `jti` (unique token ID)
+- **Signature** — HMAC/RSA signature of header + payload, computed with the private key
+
+On each request the server recomputes the signature using the public key (`config/jwt/public.pem`) and checks that `exp` has not passed. No database lookup is needed to validate a token.
+
+#### Token revocation
+
+Because a valid JWT cannot be "un-issued", logout requires a denylist. When `POST /api/auth/revoke` is called:
+
+1. The `jti` claim (a UUID v7 injected at creation time by `JwtCreatedListener`) is written to the `revoked_tokens` table alongside its expiry.
+2. `JwtDecodedListener` checks every incoming token against that table and returns `401` if the `jti` is found.
+3. Rows are kept only until the token would have expired naturally — after that they are irrelevant and can be pruned.
+
+Revoking one token does not affect other active sessions for the same user, because each JWT has its own unique `jti`.
+
+#### Token expiry
+
+The token lifetime is controlled by the `JWT_TTL` environment variable (in seconds). The default is `3600` (1 hour). Set it in your `.env`:
+
+```dotenv
+JWT_TTL=3600
+```
+
 ### Default admin user
 
 A seed admin user is created automatically by the migrations:

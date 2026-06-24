@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ---
 
+## [1.1.7] - 2026-06-24
+
+### Changed
+- `JWT_TTL` env variable controls token lifetime (`config/packages/lexik_jwt_authentication.yaml`); default is `3600` seconds.
+- `.env.sample` and `.env`: added `JWT_TTL=3600`.
+- `README.md`: added "How JWT works" and "Token expiry" sections under JWT Authentication.
+
+---
+
 ## [1.1.6] - 2026-06-24
 
 ### Changed
