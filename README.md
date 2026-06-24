@@ -48,22 +48,20 @@ cd work-entries
 
 ### 2. Configure environment variables
 
-Create a `.env.local` with your own values (never commit this file):
+`.env` is not committed. Copy the provided sample to create your local copy:
 
 ```bash
-cp .env .env.local
+cp .env.sample .env
 ```
 
-Edit `.env.local` and set at least:
+The sample already contains working defaults for the Docker setup. Override only what you need to change — at minimum, set unique secrets for non-development environments:
 
 ```dotenv
 APP_SECRET=<generate-with-openssl-rand-hex-32>
-DB_DATABASE=work_entries
-DB_USER=work_entries
-DB_PASSWORD=work_entries123
-DB_ROOT_PASSWORD=root123
 JWT_PASSPHRASE=<your-secure-passphrase>
 ```
+
+Symfony also loads `.env.dev` (committed) for `APP_ENV=dev` overrides, and `.env.*.local` files (never committed) for machine-specific overrides.
 
 ### 3. Start Docker
 
@@ -664,6 +662,9 @@ docker exec work_entries_app php bin/phpunit --no-coverage
 
 # Validate that the database schema matches the entity mappings
 docker exec work_entries_app php bin/console doctrine:schema:validate
+
+# Export the OpenAPI/Swagger spec to swagger.yaml
+docker exec work_entries_app php bin/console api:openapi:export --yaml > swagger.yaml
 ```
 
 ## Changelog

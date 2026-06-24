@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and the 
 
 ---
 
+## [1.1.6] - 2026-06-24
+
+### Changed
+- `README.md`: corrected `.env` setup instructions — `cp .env.sample .env` replaces the incorrect `cp .env .env.local` flow; clarified that `.env` is untracked and defaults work out of the box for Docker.
+- `README.md`: added `api:openapi:export` command to Useful Commands section.
+- `.env.sample`: `DATABASE_URL` now references `${DB_USER}`, `${DB_PASSWORD}`, `${DB_PORT}`, and `${DB_DATABASE}` instead of hardcoded credentials.
+
+---
+
 ## [1.1.5] - 2026-06-23
 
 ### Fixed

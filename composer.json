@@ -1,7 +1,7 @@
 {
     "name": "laralbir/work-entries",
     "description": "Work Entries API",
-    "version": "1.1.5",
+    "version": "1.1.6",
     "type": "project",
     "license": "proprietary",
     "minimum-stability": "stable",
